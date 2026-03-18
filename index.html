@@ -278,6 +278,28 @@ html, body {
 }
 .size-btn:active { opacity: 0.75; }
 
+.line-color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.line-color-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 44px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  outline: none;
+}
+.line-color-btn.active {
+  border-color: white;
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(255,255,255,0.4);
+}
+.line-color-btn:active { transform: scale(0.88); }
+
 .ball-count-badge {
   position: absolute;
   top: 6px;
@@ -332,6 +354,17 @@ html, body {
 
       <div class="palette-divider"></div>
       <button id="clear-btn" onclick="clearAll()">Clear All</button>
+
+      <div class="palette-divider"></div>
+      <div class="palette-label">Line Color</div>
+      <div class="line-color-grid">
+        <button class="line-color-btn active" id="lc-white"  style="background:#FFFFFF" title="White"  onclick="setLineColor('white')"></button>
+        <button class="line-color-btn"        id="lc-red"    style="background:#FF4444" title="Red"    onclick="setLineColor('red')"></button>
+        <button class="line-color-btn"        id="lc-blue"   style="background:#4488FF" title="Blue"   onclick="setLineColor('blue')"></button>
+        <button class="line-color-btn"        id="lc-green"  style="background:#44CC44" title="Green"  onclick="setLineColor('green')"></button>
+        <button class="line-color-btn"        id="lc-orange" style="background:#FF8800" title="Orange" onclick="setLineColor('orange')"></button>
+        <button class="line-color-btn"        id="lc-purple" style="background:#CC44FF" title="Purple" onclick="setLineColor('purple')"></button>
+      </div>
 
       <div class="palette-divider"></div>
       <div class="palette-label">Grid Size</div>
@@ -560,6 +593,16 @@ let balls  = [];   // {x,y,vx,vy,props,trail[],atRest,restTimer,fadeTimer,opacit
 let currentTool      = 'wall';
 let currentGridSize  = 'medium';
 let currentBallColor = 'yellow';
+let currentLineColor = '#FFFFFF';
+
+const LINE_COLORS = {
+  white:  '#FFFFFF',
+  red:    '#FF4444',
+  blue:   '#4488FF',
+  green:  '#44CC44',
+  orange: '#FF8800',
+  purple: '#CC44FF',
+};
 let ballCountIdx     = 1;   // index into BALL_COUNTS
 
 let isDrawing    = false;
@@ -649,7 +692,7 @@ function onStart(x, y) {
   if (currentTool === 'peg') {
     const dot = snapToDot(x, y);
     if (dot && !pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4)) {
-      pegs.push({ x: dot.x, y: dot.y, pulseTimer: 0 });
+      pegs.push({ x: dot.x, y: dot.y, pulseTimer: 0, color: currentLineColor });
     }
     return;
   }
@@ -700,9 +743,9 @@ function onEnd(x, y) {
     const { x: ax, y: ay } = drawStart;
     const { x: bx, y: by } = endDot;
     if (currentTool === 'wall') {
-      walls.push({ ax, ay, bx, by });
+      walls.push({ ax, ay, bx, by, color: currentLineColor });
     } else if (currentTool === 'curve') {
-      curves.push({ ax, ay, bx, by, cx: (ax+bx)/2, cy: (ay+by)/2 });
+      curves.push({ ax, ay, bx, by, cx: (ax+bx)/2, cy: (ay+by)/2, color: currentLineColor });
     }
   }
   drawStart = null;
@@ -1082,8 +1125,9 @@ function drawWalls() {
       ctx.shadowColor = '#FFE030';
       ctx.shadowBlur = 6 + 22 * flash;
     } else {
-      ctx.strokeStyle = '#D4B896';
-      ctx.shadowColor = 'rgba(212,184,150,0.35)';
+      const wColor = w.color || '#D4B896';
+      ctx.strokeStyle = wColor;
+      ctx.shadowColor = wColor + '59';
       ctx.shadowBlur = 5;
     }
     ctx.beginPath();
@@ -1105,8 +1149,9 @@ function drawCurves() {
       ctx.shadowColor = '#00EEFF';
       ctx.shadowBlur = 6 + 22 * flash;
     } else {
-      ctx.strokeStyle = '#88CCEE';
-      ctx.shadowColor = 'rgba(136,204,238,0.35)';
+      const cColor = c.color || '#88CCEE';
+      ctx.strokeStyle = cColor;
+      ctx.shadowColor = cColor + '59';
       ctx.shadowBlur = 5;
     }
     ctx.lineWidth = WALL_HALF_W * 2;
@@ -1118,9 +1163,10 @@ function drawCurves() {
     ctx.restore();
 
     if (showHandles) {
+      const cColor = c.color || '#88CCEE';
       // Dashed guide lines to control point
       ctx.save();
-      ctx.strokeStyle = 'rgba(136,204,238,0.45)';
+      ctx.strokeStyle = cColor + '72';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -1133,7 +1179,7 @@ function drawCurves() {
       // Handle circle
       ctx.beginPath();
       ctx.arc(c.cx, c.cy, HANDLE_RADIUS, 0, Math.PI*2);
-      ctx.fillStyle = '#88CCEE';
+      ctx.fillStyle = cColor;
       ctx.fill();
       ctx.strokeStyle = 'white';
       ctx.lineWidth = 2;
@@ -1148,16 +1194,21 @@ function drawPegs() {
     const extra = pulse > 0 ? Math.sin((pulse / 0.35) * Math.PI) * 7 : 0;
     const r = PEG_RADIUS + extra;
 
+    const pegColor = peg.color || null;
+    const baseLight = pegColor ? lighten(pegColor, pulse > 0 ? 60 : 40) : (pulse > 0 ? '#FFE040' : '#FFC820');
+    const baseDark  = pegColor ? darken(pegColor, pulse > 0 ? 20 : 40)  : (pulse > 0 ? '#FF9000' : '#CC8800');
+    const shadowCol = pegColor ? pegColor : (pulse > 0 ? '#FFD700' : 'rgba(255,185,0,0.4)');
+
     ctx.save();
-    ctx.shadowColor = pulse > 0 ? '#FFD700' : 'rgba(255,185,0,0.4)';
+    ctx.shadowColor = shadowCol;
     ctx.shadowBlur  = pulse > 0 ? 18 : 7;
     ctx.beginPath();
     ctx.arc(peg.x, peg.y, r, 0, Math.PI*2);
 
     // Gradient fill
     const grad = ctx.createRadialGradient(peg.x - r*0.3, peg.y - r*0.3, r*0.1, peg.x, peg.y, r);
-    grad.addColorStop(0, pulse > 0 ? '#FFE040' : '#FFC820');
-    grad.addColorStop(1, pulse > 0 ? '#FF9000' : '#CC8800');
+    grad.addColorStop(0, baseLight);
+    grad.addColorStop(1, baseDark);
     ctx.fillStyle = grad;
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.55)';
@@ -1222,11 +1273,12 @@ function drawGhost() {
   const ex = snapEnd ? snapEnd.x : ghostPos.x;
   const ey = snapEnd ? snapEnd.y : ghostPos.y;
 
+  const [gr, gg, gb] = parseHex(currentLineColor);
   ctx.save();
   ctx.setLineDash([9, 8]);
   ctx.lineCap = 'round';
   ctx.lineWidth = WALL_HALF_W * 2;
-  ctx.strokeStyle = currentTool === 'curve' ? 'rgba(136,204,238,0.55)' : 'rgba(212,184,150,0.55)';
+  ctx.strokeStyle = `rgba(${gr},${gg},${gb},0.55)`;
   ctx.beginPath();
   ctx.moveTo(drawStart.x, drawStart.y);
   ctx.lineTo(ex, ey);
@@ -1234,7 +1286,7 @@ function drawGhost() {
   ctx.restore();
 
   // Highlight start and end dots
-  const hlColor = currentTool === 'curve' ? 'rgba(136,204,238,0.85)' : 'rgba(212,184,150,0.85)';
+  const hlColor = `rgba(${gr},${gg},${gb},0.85)`;
   ctx.beginPath();
   ctx.arc(drawStart.x, drawStart.y, DOT_RADIUS + 5, 0, Math.PI*2);
   ctx.fillStyle = hlColor; ctx.fill();
@@ -1274,7 +1326,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.7', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v1.8', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -1316,6 +1368,12 @@ function setBallColor(color) {
   currentBallColor = color;
   document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-' + color).classList.add('active');
+}
+
+function setLineColor(name) {
+  currentLineColor = LINE_COLORS[name] || '#FFFFFF';
+  document.querySelectorAll('.line-color-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('lc-' + name).classList.add('active');
 }
 
 function changeBallCount(dir) {
@@ -1376,6 +1434,7 @@ function init() {
 window.setTool        = setTool;
 window.setGridSize    = setGridSize;
 window.setBallColor   = setBallColor;
+window.setLineColor   = setLineColor;
 window.changeBallCount = changeBallCount;
 window.dropBalls      = dropBalls;
 window.clearAll       = clearAll;
