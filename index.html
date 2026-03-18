@@ -221,6 +221,25 @@ html, body {
   margin: 3px 0;
 }
 
+#mute-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #0f3460;
+  color: white;
+  font-size: 22px;
+  border: 2px solid #1a4a7a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+  flex-shrink: 0;
+  outline: none;
+}
+#mute-btn:active { background: #1a5f8a; }
+#mute-btn.muted { background: #3a1a1a; border-color: #7a2020; }
+
 #clear-btn {
   width: 100%;
   height: 52px;
@@ -294,6 +313,7 @@ html, body {
       <button class="count-btn" onclick="changeBallCount(1)">+</button>
     </div>
 
+    <button id="mute-btn" onclick="toggleSound()" title="Toggle sound">🔊</button>
     <button id="drop-btn" onclick="dropBalls()">DROP!</button>
   </div>
 
@@ -327,6 +347,165 @@ html, body {
 
 <script>
 'use strict';
+
+// ============================================================
+// SOUND ENGINE
+// ============================================================
+class SoundEngine {
+  constructor() {
+    this.audioCtx = null;
+    this.muted = false;
+    this.activeCount = 0;
+    this.MAX_CONCURRENT = 9;
+    this.lastPlay = { wall: 0, peg: 0, curve: 0, ball: 0, rest: 0 };
+    this.cooldowns = { wall: 30, peg: 20, curve: 30, ball: 50, rest: 100 };
+
+    // Create AudioContext on first user gesture — required for iOS Safari
+    const init = () => this._ensureContext();
+    document.addEventListener('mousedown',  init, { once: true });
+    document.addEventListener('touchstart', init, { once: true, passive: true });
+  }
+
+  _ensureContext() {
+    if (!this.audioCtx) {
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+  }
+
+  _canPlay(type) {
+    if (this.muted || !this.audioCtx || this.audioCtx.state === 'suspended') return false;
+    if (this.activeCount >= this.MAX_CONCURRENT) return false;
+    const nowMs = this.audioCtx.currentTime * 1000;
+    if (nowMs - (this.lastPlay[type] || 0) < (this.cooldowns[type] || 30)) return false;
+    this.lastPlay[type] = nowMs;
+    return true;
+  }
+
+  _track(node) {
+    this.activeCount++;
+    node.onended = () => { this.activeCount = Math.max(0, this.activeCount - 1); };
+  }
+
+  // Wall bounce — short percussive thock, 150Hz→80Hz over 50ms
+  playWallHit() {
+    if (!this._canPlay('wall')) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.linearRampToValueAtTime(80, t + 0.05);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.30, t + 0.002);
+    gain.gain.setValueAtTime(0.30, t + 0.05);
+    gain.gain.linearRampToValueAtTime(0, t + 0.07);
+    osc.start(t); osc.stop(t + 0.08); this._track(osc);
+  }
+
+  // Peg hit — plink, 400-800Hz randomized, short decay, +harmonic
+  playPegHit() {
+    if (!this._canPlay('peg')) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const freq = 400 + Math.random() * 400;
+
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.25, t + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    osc.start(t); osc.stop(t + 0.05); this._track(osc);
+
+    // Quiet second harmonic for richness
+    if (this.activeCount < this.MAX_CONCURRENT) {
+      const osc2 = ctx.createOscillator(), gain2 = ctx.createGain();
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 2, t);
+      gain2.gain.setValueAtTime(0.001, t);
+      gain2.gain.linearRampToValueAtTime(0.08, t + 0.001);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      osc2.start(t); osc2.stop(t + 0.04); this._track(osc2);
+    }
+  }
+
+  // Curve hit — soft sweep 200Hz→120Hz over 30ms
+  playCurveHit() {
+    if (!this._canPlay('curve')) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, t);
+    osc.frequency.linearRampToValueAtTime(120, t + 0.03);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.15, t + 0.002);
+    gain.gain.linearRampToValueAtTime(0, t + 0.04);
+    osc.start(t); osc.stop(t + 0.05); this._track(osc);
+  }
+
+  // Ball-ball collision — tiny noise burst 20ms through bandpass at 2kHz
+  playBallHit() {
+    if (!this._canPlay('ball')) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const bufSize = Math.floor(ctx.sampleRate * 0.02);
+    const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass'; bpf.frequency.value = 2000; bpf.Q.value = 1.5;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.07, t);
+    gain.gain.linearRampToValueAtTime(0, t + 0.02);
+    src.connect(bpf); bpf.connect(gain); gain.connect(ctx.destination);
+    src.start(t); this._track(src);
+  }
+
+  // DROP button — descending sweep 800Hz→200Hz over 300ms (sawtooth)
+  playDrop() {
+    this._ensureContext(); // called from user gesture — safe to create here
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(200, t + 0.30);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.20, t + 0.01);
+    gain.gain.setValueAtTime(0.20, t + 0.25);
+    gain.gain.linearRampToValueAtTime(0, t + 0.32);
+    osc.start(t); osc.stop(t + 0.35);
+    this.activeCount++;
+    osc.onended = () => { this.activeCount = Math.max(0, this.activeCount - 1); };
+  }
+
+  // Ball settled — very subtle 60Hz thud, barely audible
+  playRest() {
+    if (!this._canPlay('rest')) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(60, t);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.06, t + 0.005);
+    gain.gain.linearRampToValueAtTime(0, t + 0.03);
+    osc.start(t); osc.stop(t + 0.04); this._track(osc);
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    return this.muted;
+  }
+}
+
+const soundEngine = new SoundEngine();
 
 // ============================================================
 // CONFIG
@@ -692,11 +871,17 @@ function updatePhysics(dt) {
       b.y += b.vy * subDt;
 
       // Wall collisions — bumper boost
-      for (const w of walls) reflectSeg(b, w.ax, w.ay, w.bx, w.by, BUMPER_FACTOR_WALL, w);
+      for (const w of walls) { if (reflectSeg(b, w.ax, w.ay, w.bx, w.by, BUMPER_FACTOR_WALL, w)) soundEngine.playWallHit(); }
 
       // Curve collisions — bumper boost + tangential scoop
+      let curveHitThisFrame = false;
       for (const c of curves) {
-        for (const s of sampleCurve(c, 20)) reflectSeg(b, s.ax, s.ay, s.bx, s.by, BUMPER_FACTOR_CURVE, c, CURVE_TANG_BOOST);
+        for (const s of sampleCurve(c, 20)) {
+          if (reflectSeg(b, s.ax, s.ay, s.bx, s.by, BUMPER_FACTOR_CURVE, c, CURVE_TANG_BOOST) && !curveHitThisFrame) {
+            soundEngine.playCurveHit();
+            curveHitThisFrame = true;
+          }
+        }
       }
 
       // Peg collisions — pinball bumper boost
@@ -726,6 +911,7 @@ function updatePhysics(dt) {
             const nvy = b.vx*sin + b.vy*cos;
             b.vx = nvx; b.vy = nvy;
             peg.pulseTimer = 0.35;
+            soundEngine.playPegHit();
           }
         }
       }
@@ -755,6 +941,7 @@ function updatePhysics(dt) {
     if (speed < REST_SPEED) {
       b.restTimer += dt;
       if (b.restTimer > REST_TIME) {
+        if (!b.atRest && !b.fading) soundEngine.playRest();
         b.atRest = true;
         b.vx = 0; b.vy = 0;
         b.trail = [];
@@ -790,6 +977,7 @@ function updatePhysics(dt) {
         const impulse = (2 * relV) / (ma + mb);
         a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
         b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
+        soundEngine.playBallHit();
         if (a.atRest) { a.atRest = false; a.restTimer = 0; a.fadeTimer = 0; a.opacity = 1.0; }
         if (b.atRest) { b.atRest = false; b.restTimer = 0; b.fadeTimer = 0; b.opacity = 1.0; }
       }
@@ -1098,10 +1286,18 @@ function changeBallCount(dir) {
 
 function dropBalls() {
   if (balls.length >= MAX_BALLS) return;
+  soundEngine.playDrop();
   spawnBalls();
   const btn = document.getElementById('drop-btn');
   btn.style.transform = 'scale(0.90)';
   setTimeout(() => { btn.style.transform = ''; }, 160);
+}
+
+function toggleSound() {
+  const muted = soundEngine.toggleMute();
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = muted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', muted);
 }
 
 function clearAll() {
@@ -1144,6 +1340,7 @@ window.setBallColor   = setBallColor;
 window.changeBallCount = changeBallCount;
 window.dropBalls      = dropBalls;
 window.clearAll       = clearAll;
+window.toggleSound    = toggleSound;
 
 // Wait for full layout before init — prevents zero canvas dimensions on iPad Safari
 window.addEventListener('load', init);
