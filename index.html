@@ -971,16 +971,29 @@ function updatePhysics(dt) {
       const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
       const relV = dvx*nx + dvy*ny;
       if (relV > 0) {
-        if (relV < 30) {
-          // Low-energy collision — apply extra damping to kill micro-bouncing pile
-          a.vx *= 0.5; a.vy *= 0.5;
-          b.vx *= 0.5; b.vy *= 0.5;
-        } else {
-          const impulse = (2 * relV) / (ma + mb);
-          a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
-          b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
-          if (relV > 50) soundEngine.playBallHit();
-        }
+        // Slight angular jitter ±4° — prevents perfectly head-on dead stops
+        const jitterAngle = (Math.random() - 0.5) * (8 * Math.PI / 180);
+        const cosJ = Math.cos(jitterAngle), sinJ = Math.sin(jitterAngle);
+        const jnx = nx * cosJ - ny * sinJ;
+        const jny = nx * sinJ + ny * cosJ;
+
+        // Partial elastic impulse — 55% normal, 30% for micro-bouncing piles
+        // Both balls keep moving; mass asymmetry handled naturally by formula
+        const elasticImpulse = (2 * relV) / (ma + mb);
+        const impulse = elasticImpulse * (relV < 30 ? 0.3 : 0.55);
+
+        // Apply impulse; attenuate Y axis 75% to preserve downward/gravity momentum
+        a.vx -= impulse * mb * jnx; a.vy -= impulse * mb * jny * 0.75;
+        b.vx += impulse * ma * jnx; b.vy += impulse * ma * jny * 0.75;
+
+        // Minimum outgoing speed — no ball stops dead from a mid-air collision
+        const MIN_COLL_SPEED = 80;
+        const speedA = Math.hypot(a.vx, a.vy);
+        const speedB = Math.hypot(b.vx, b.vy);
+        if (speedA > 0.01 && speedA < MIN_COLL_SPEED) { const s = MIN_COLL_SPEED / speedA; a.vx *= s; a.vy *= s; }
+        if (speedB > 0.01 && speedB < MIN_COLL_SPEED) { const s = MIN_COLL_SPEED / speedB; b.vx *= s; b.vy *= s; }
+
+        if (relV > 50) soundEngine.playBallHit();
         if (a.atRest) { a.atRest = false; a.restTimer = 0; a.fadeTimer = 0; a.opacity = 1.0; }
         if (b.atRest) { b.atRest = false; b.restTimer = 0; b.fadeTimer = 0; b.opacity = 1.0; }
       }
@@ -1238,7 +1251,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.5', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v1.6', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
