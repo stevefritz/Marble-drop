@@ -531,8 +531,8 @@ const PEG_RADIUS     = 14;    // px
 const DOT_RADIUS     = 5;     // px
 const HANDLE_RADIUS  = 11;    // curve control-point handle
 const SNAP_RADIUS    = 42;    // dot-snapping radius
-const REST_SPEED     = 28;    // px/s threshold
-const REST_TIME      = 1.4;   // seconds at low speed before atRest
+const REST_SPEED     = 40;    // px/s threshold — higher = faster rest detection
+const REST_TIME      = 0.6;   // seconds at low speed before atRest
 const BALL_COUNTS    = [1, 5, 10, 25, 50];
 
 // Bumper physics
@@ -678,7 +678,6 @@ function onStart(x, y) {
   }
 }
 
-let lastEraseMs = 0;
 function onMove(x, y) {
   if (editingCurve) {
     editingCurve.cx = x;
@@ -688,11 +687,8 @@ function onMove(x, y) {
   if (isDrawing) {
     ghostPos = { x, y };
   }
-  if (currentTool === 'eraser') {
-    const now = Date.now();
-    if (now - lastEraseMs > 80) { eraseAt(x, y); lastEraseMs = now; }
-  }
 }
+
 
 function onEnd(x, y) {
   if (editingCurve) { editingCurve = null; return; }
@@ -871,14 +867,14 @@ function updatePhysics(dt) {
       b.y += b.vy * subDt;
 
       // Wall collisions — bumper boost
-      for (const w of walls) { if (reflectSeg(b, w.ax, w.ay, w.bx, w.by, BUMPER_FACTOR_WALL, w)) soundEngine.playWallHit(); }
+      for (const w of walls) { if (reflectSeg(b, w.ax, w.ay, w.bx, w.by, BUMPER_FACTOR_WALL, w)) { if (Math.hypot(b.vx, b.vy) > 60) soundEngine.playWallHit(); } }
 
       // Curve collisions — bumper boost + tangential scoop
       let curveHitThisFrame = false;
       for (const c of curves) {
         for (const s of sampleCurve(c, 20)) {
           if (reflectSeg(b, s.ax, s.ay, s.bx, s.by, BUMPER_FACTOR_CURVE, c, CURVE_TANG_BOOST) && !curveHitThisFrame) {
-            soundEngine.playCurveHit();
+            if (Math.hypot(b.vx, b.vy) > 60) soundEngine.playCurveHit();
             curveHitThisFrame = true;
           }
         }
@@ -895,6 +891,7 @@ function updatePhysics(dt) {
           b.y += pny * (pminD - pdist);
           const pdot = b.vx*pnx + b.vy*pny;
           if (pdot < 0) {
+            const preHitSpeed = Math.hypot(b.vx, b.vy);
             const r = b.props.restitution;
             b.vx -= (1+r) * pdot * pnx;
             b.vy -= (1+r) * pdot * pny;
@@ -911,7 +908,7 @@ function updatePhysics(dt) {
             const nvy = b.vx*sin + b.vy*cos;
             b.vx = nvx; b.vy = nvy;
             peg.pulseTimer = 0.35;
-            soundEngine.playPegHit();
+            if (preHitSpeed > 40) soundEngine.playPegHit();
           }
         }
       }
@@ -920,7 +917,7 @@ function updatePhysics(dt) {
       if (b.y + br > H) {
         b.y = H - br;
         if (b.vy > 0) b.vy = -b.vy * b.props.restitution;
-        b.vx *= 0.97;  // ground friction
+        b.vx *= 0.85;  // stronger ground friction — settle fast, no micro-sliding
       }
 
       // Boundary: left/right canvas edges — bounce
@@ -946,9 +943,9 @@ function updatePhysics(dt) {
         b.vx = 0; b.vy = 0;
         b.trail = [];
       }
-      // Gentle damping at low speed
-      b.vx *= 0.97;
-      b.vy *= 0.97;
+      // Stronger damping at low speed — kill micro-jiggling faster
+      b.vx *= 0.90;
+      b.vy *= 0.90;
     } else {
       b.restTimer = 0;
     }
@@ -974,10 +971,16 @@ function updatePhysics(dt) {
       const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
       const relV = dvx*nx + dvy*ny;
       if (relV > 0) {
-        const impulse = (2 * relV) / (ma + mb);
-        a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
-        b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
-        soundEngine.playBallHit();
+        if (relV < 30) {
+          // Low-energy collision — apply extra damping to kill micro-bouncing pile
+          a.vx *= 0.5; a.vy *= 0.5;
+          b.vx *= 0.5; b.vy *= 0.5;
+        } else {
+          const impulse = (2 * relV) / (ma + mb);
+          a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
+          b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
+          if (relV > 50) soundEngine.playBallHit();
+        }
         if (a.atRest) { a.atRest = false; a.restTimer = 0; a.fadeTimer = 0; a.opacity = 1.0; }
         if (b.atRest) { b.atRest = false; b.restTimer = 0; b.fadeTimer = 0; b.opacity = 1.0; }
       }
@@ -1235,7 +1238,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.4', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v1.5', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
