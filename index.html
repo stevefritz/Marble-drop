@@ -395,7 +395,7 @@ let nextBallId    = 0;
 // ============================================================
 function setupGrid() {
   const { cols, rows } = GRID_SIZES[currentGridSize];
-  const pad = 44;
+  const pad = 15;
   const availW = canvas.width  - pad * 2;
   const availH = canvas.height - pad * 2;
   gridSpacing = Math.min(availW / (cols - 1), availH / (rows - 1));
@@ -656,7 +656,12 @@ function updatePhysics(dt) {
   // Update each ball
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
-    if (b.atRest) continue;
+    if (b.atRest) {
+      // Fade out resting balls over ~2 seconds then remove them
+      b.fadeAlpha -= dt / 2.0;
+      if (b.fadeAlpha <= 0) balls.splice(i, 1);
+      continue;
+    }
 
     // Trail
     b.trail.push({ x: b.x, y: b.y });
@@ -714,10 +719,12 @@ function updatePhysics(dt) {
         }
       }
 
-      // Boundary: left / right
+      // Boundary: left / right — soft walls at 10% inset to keep balls in center playfield
       const br = b.props.radius;
-      if (b.x - br < 0) { b.x = br; b.vx = Math.abs(b.vx) * b.props.restitution; }
-      if (b.x + br > W) { b.x = W-br; b.vx = -Math.abs(b.vx) * b.props.restitution; }
+      const leftBound  = W * 0.1;
+      const rightBound = W * 0.9;
+      if (b.x - br < leftBound)  { b.x = leftBound + br;  b.vx =  Math.abs(b.vx) * 0.3; }
+      if (b.x + br > rightBound) { b.x = rightBound - br; b.vx = -Math.abs(b.vx) * 0.3; }
 
       // Boundary: bottom
       if (b.y + br > H) {
@@ -751,7 +758,7 @@ function updatePhysics(dt) {
   for (let i = 0; i < balls.length; i++) {
     for (let j = i+1; j < balls.length; j++) {
       const a = balls[i], b = balls[j];
-      if (a.atRest && b.atRest) continue;
+      if (a.atRest || b.atRest) continue;  // fading balls are ghosts — no collision
 
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -805,6 +812,7 @@ function spawnBalls() {
       trail: [],
       atRest: false,
       restTimer: 0,
+      fadeAlpha: 1.0,
     });
   }
 }
@@ -921,14 +929,15 @@ function drawBalls() {
   for (const b of balls) {
     const p = b.props;
     const r = p.radius;
+    const alpha = b.fadeAlpha !== undefined ? b.fadeAlpha : 1.0;
 
     // Trail
     if (!b.atRest && b.trail.length > 1) {
       ctx.save();
       for (let i = 0; i < b.trail.length; i++) {
-        const alpha = (i+1) / b.trail.length * 0.38;
+        const trAlpha = (i+1) / b.trail.length * 0.38 * alpha;
         const tr = r * (i+1) / b.trail.length * 0.9;
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha = trAlpha;
         ctx.beginPath();
         ctx.arc(b.trail[i].x, b.trail[i].y, tr, 0, Math.PI*2);
         ctx.fillStyle = p.color;
@@ -939,6 +948,7 @@ function drawBalls() {
 
     // Glow + ball
     ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.shadowColor = p.glow;
     ctx.shadowBlur  = 12;
 
@@ -954,10 +964,12 @@ function drawBalls() {
     ctx.restore();
 
     // Specular highlight
+    ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.arc(b.x - r*0.3, b.y - r*0.32, r*0.32, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(255,255,255,0.48)';
     ctx.fill();
+    ctx.globalAlpha = 1.0;
   }
 }
 
