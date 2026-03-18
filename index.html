@@ -375,7 +375,7 @@ let ballCountIdx     = 1;   // index into BALL_COUNTS
 
 let isDrawing    = false;
 let drawStart    = null;   // snapped dot {x,y}
-let drawGhost    = null;   // current touch pos {x,y}
+let ghostPos     = null;   // current touch pos {x,y}
 let editingCurve = null;   // curve whose handle is being dragged
 
 let lastTimestamp = 0;
@@ -480,7 +480,7 @@ function onStart(x, y) {
   if (dot) {
     isDrawing = true;
     drawStart = { x: dot.x, y: dot.y };
-    drawGhost = { x, y };
+    ghostPos = { x, y };
   }
 }
 
@@ -492,7 +492,7 @@ function onMove(x, y) {
     return;
   }
   if (isDrawing) {
-    drawGhost = { x, y };
+    ghostPos = { x, y };
   }
   if (currentTool === 'eraser') {
     const now = Date.now();
@@ -516,7 +516,7 @@ function onEnd(x, y) {
     }
   }
   drawStart = null;
-  drawGhost = null;
+  ghostPos = null;
 }
 
 function eraseAt(x, y) {
@@ -554,7 +554,7 @@ function setupInput() {
   canvas.addEventListener('touchstart', e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); }, opts);
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  }, opts);
   canvas.addEventListener('touchend',   e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   }, opts);
-  canvas.addEventListener('touchcancel',e => { isDrawing=false; editingCurve=null; drawStart=null; drawGhost=null; }, opts);
+  canvas.addEventListener('touchcancel',e => { isDrawing=false; editingCurve=null; drawStart=null; ghostPos=null; }, opts);
 }
 
 // ============================================================
@@ -902,10 +902,10 @@ function drawBalls() {
 }
 
 function drawGhost() {
-  if (!isDrawing || !drawStart || !drawGhost) return;
-  const snapEnd = snapToDot(drawGhost.x, drawGhost.y);
-  const ex = snapEnd ? snapEnd.x : drawGhost.x;
-  const ey = snapEnd ? snapEnd.y : drawGhost.y;
+  if (!isDrawing || !drawStart || !ghostPos) return;
+  const snapEnd = snapToDot(ghostPos.x, ghostPos.y);
+  const ex = snapEnd ? snapEnd.x : ghostPos.x;
+  const ey = snapEnd ? snapEnd.y : ghostPos.y;
 
   ctx.save();
   ctx.setLineDash([9, 8]);
@@ -977,7 +977,7 @@ function setTool(tool) {
   currentTool = tool;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-' + tool).classList.add('active');
-  isDrawing = false; drawStart = null; drawGhost = null; editingCurve = null;
+  isDrawing = false; drawStart = null; ghostPos = null; editingCurve = null;
 }
 
 function setGridSize(size) {
@@ -1011,7 +1011,7 @@ function clearAll() {
   if (walls.length + curves.length + pegs.length + balls.length === 0) return;
   if (confirm('Clear everything and start over?')) {
     walls = []; curves = []; pegs = []; balls = [];
-    isDrawing = false; drawStart = null; drawGhost = null; editingCurve = null;
+    isDrawing = false; drawStart = null; ghostPos = null; editingCurve = null;
   }
 }
 
