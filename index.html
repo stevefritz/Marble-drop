@@ -662,8 +662,9 @@ function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tangBoost) 
 function updatePhysics(dt) {
   const W = canvas.width, H = canvas.height;
 
-  const playLeft  = W * PLAY_ZONE_MARGIN;
-  const playRight = W * (1 - PLAY_ZONE_MARGIN);
+  const leftBound   = gridOffsetX;
+  const rightBound  = gridOffsetX + gridSpacing * (gridCols - 1);
+  const bottomBound = gridOffsetY + gridSpacing * (gridRows - 1);
 
   // Update each ball
   for (let i = balls.length - 1; i >= 0; i--) {
@@ -735,9 +736,9 @@ function updatePhysics(dt) {
         }
       }
 
-      // Boundary: bottom
-      if (b.y + br > H) {
-        b.y = H - br;
+      // Boundary: bottom (grid-aligned)
+      if (b.y + br > bottomBound) {
+        b.y = bottomBound - br;
         if (b.vy > 0) b.vy = -b.vy * b.props.restitution;
         b.vx *= 0.97;  // ground friction
       }
@@ -746,8 +747,8 @@ function updatePhysics(dt) {
     // Off-screen removal (top only, shouldn't happen normally)
     if (b.y > H + 120) { balls.splice(i, 1); continue; }
 
-    // Play zone exit: ball drifted into outer 10% — start fast fade
-    if (!b.fading && (b.x - br < playLeft || b.x + br > playRight)) {
+    // Play zone exit: ball drifted outside grid bounds — start fast fade
+    if (!b.fading && (b.x - br < leftBound || b.x + br > rightBound)) {
       b.fading = true;
       b.fadeTimer = 0;
     }
@@ -1059,7 +1060,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.3', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v1.4', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
