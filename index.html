@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Marble Drop Builder</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2e;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== HOPPER BAR ===== */
+#hopper-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #16213e;
+  border-bottom: 2px solid #0f3460;
+  min-height: 74px;
+  flex-shrink: 0;
+}
+
+.color-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-label {
+  color: #6a8abf;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  writing-mode: horizontal-tb;
+}
+
+.color-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  flex-shrink: 0;
+  outline: none;
+}
+.color-btn.active {
+  border-color: white;
+  transform: scale(1.18);
+  box-shadow: 0 0 12px rgba(255,255,255,0.4);
+}
+.color-btn:active { transform: scale(0.93); }
+
+.divider-v {
+  width: 2px;
+  height: 50px;
+  background: #0f3460;
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.count-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.count-label {
+  color: #6a8abf;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+
+.count-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: #0f3460;
+  color: white;
+  font-size: 22px;
+  font-weight: bold;
+  border: 2px solid #1a4a7a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+  flex-shrink: 0;
+}
+.count-btn:active { background: #1a5f8a; }
+
+#count-display {
+  color: white;
+  font-size: 24px;
+  font-weight: 900;
+  min-width: 48px;
+  text-align: center;
+}
+
+#drop-btn {
+  margin-left: auto;
+  height: 62px;
+  min-width: 110px;
+  padding: 0 24px;
+  background: linear-gradient(135deg, #ff6b35 0%, #ff3333 100%);
+  color: white;
+  font-size: 26px;
+  font-weight: 900;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  letter-spacing: 3px;
+  box-shadow: 0 4px 20px rgba(255, 60, 60, 0.55);
+  transition: transform 0.12s, box-shadow 0.12s;
+  flex-shrink: 0;
+  outline: none;
+}
+#drop-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(255, 60, 60, 0.4);
+}
+
+/* ===== MAIN AREA ===== */
+#main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ===== TOOL PALETTE ===== */
+#tool-palette {
+  width: 164px;
+  flex-shrink: 0;
+  background: #16213e;
+  border-left: 2px solid #0f3460;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.palette-label {
+  color: #6a8abf;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 4px 0 2px;
+}
+
+.tool-btn {
+  width: 100%;
+  height: 56px;
+  border-radius: 12px;
+  background: #0f3460;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  border: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 0.1s, border-color 0.1s;
+  letter-spacing: 0.3px;
+  outline: none;
+}
+.tool-btn.active {
+  background: #1a4a7a;
+  border-color: #4aacff;
+  box-shadow: 0 0 10px rgba(74,172,255,0.25);
+}
+.tool-btn:active { opacity: 0.75; }
+
+.palette-divider {
+  height: 2px;
+  background: #0f3460;
+  margin: 3px 0;
+}
+
+#clear-btn {
+  width: 100%;
+  height: 52px;
+  border-radius: 12px;
+  background: #5c1515;
+  color: #ffaaaa;
+  font-size: 14px;
+  font-weight: 700;
+  border: 2px solid #7a2020;
+  cursor: pointer;
+  transition: background 0.1s;
+  outline: none;
+}
+#clear-btn:active { background: #7a2020; }
+
+.size-btns {
+  display: flex;
+  gap: 6px;
+}
+.size-btn {
+  flex: 1;
+  height: 46px;
+  border-radius: 10px;
+  background: #0f3460;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  outline: none;
+}
+.size-btn.active {
+  background: #1a4a7a;
+  border-color: #4aacff;
+}
+.size-btn:active { opacity: 0.75; }
+
+.ball-count-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: rgba(255,255,255,0.15);
+  color: #aac;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOPPER BAR -->
+  <div id="hopper-bar">
+    <span class="color-label">Color:</span>
+    <div class="color-section">
+      <button class="color-btn active" id="btn-yellow" style="background:radial-gradient(circle at 35% 35%, #FFE566, #FFCC00)" title="Normal" onclick="setBallColor('yellow')"></button>
+      <button class="color-btn" id="btn-red"    style="background:radial-gradient(circle at 35% 35%, #FF7777, #FF3333)" title="Fast"   onclick="setBallColor('red')"></button>
+      <button class="color-btn" id="btn-blue"   style="background:radial-gradient(circle at 35% 35%, #66AAFF, #3366FF)" title="Heavy"  onclick="setBallColor('blue')"></button>
+      <button class="color-btn" id="btn-green"  style="background:radial-gradient(circle at 35% 35%, #66EE66, #22BB22)" title="Bouncy" onclick="setBallColor('green')"></button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div class="count-section">
+      <span class="count-label">Balls:</span>
+      <button class="count-btn" onclick="changeBallCount(-1)">−</button>
+      <div id="count-display">5</div>
+      <button class="count-btn" onclick="changeBallCount(1)">+</button>
+    </div>
+
+    <button id="drop-btn" onclick="dropBalls()">DROP!</button>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+    <div id="canvas-container">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="tool-palette">
+      <div class="palette-label">Tools</div>
+      <button class="tool-btn active" id="btn-wall"   onclick="setTool('wall')">🧱 Wall</button>
+      <button class="tool-btn"        id="btn-curve"  onclick="setTool('curve')">〜 Curve</button>
+      <button class="tool-btn"        id="btn-peg"    onclick="setTool('peg')">⬤ Peg</button>
+      <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">✕ Erase</button>
+
+      <div class="palette-divider"></div>
+      <button id="clear-btn" onclick="clearAll()">🗑 Clear All</button>
+
+      <div class="palette-divider"></div>
+      <div class="palette-label">Grid Size</div>
+      <div class="size-btns">
+        <button class="size-btn"        id="size-S" onclick="setGridSize('small')">S</button>
+        <button class="size-btn active" id="size-M" onclick="setGridSize('medium')">M</button>
+        <button class="size-btn"        id="size-L" onclick="setGridSize('large')">L</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// CONFIG
+// ============================================================
+const GRID_SIZES = {
+  small:  { cols: 8,  rows: 6  },
+  medium: { cols: 12, rows: 9  },
+  large:  { cols: 16, rows: 12 },
+};
+
+const BALL_PROPS = {
+  yellow: { color: '#FFCC00', glow: '#FFE566', speed: 1.0, mass: 1.0,  restitution: 0.62, radius: 8 },
+  red:    { color: '#FF3333', glow: '#FF8866', speed: 1.8, mass: 1.0,  restitution: 0.52, radius: 8 },
+  blue:   { color: '#3366FF', glow: '#66AAFF', speed: 1.0, mass: 3.0,  restitution: 0.40, radius: 8 },
+  green:  { color: '#22BB22', glow: '#66EE66', speed: 1.0, mass: 0.75, restitution: 0.96, radius: 8 },
+};
+
+const GRAVITY        = 680;   // px/s²
+const FIXED_DT       = 1/60;  // fixed physics timestep
+const MAX_BALLS      = 200;
+const WALL_HALF_W    = 5;     // collision half-width of walls
+const PEG_RADIUS     = 14;    // px
+const DOT_RADIUS     = 5;     // px
+const HANDLE_RADIUS  = 11;    // curve control-point handle
+const SNAP_RADIUS    = 42;    // dot-snapping radius
+const REST_SPEED     = 28;    // px/s threshold
+const REST_TIME      = 1.4;   // seconds at low speed before atRest
+const BALL_COUNTS    = [1, 5, 10, 25, 50];
+
+// ============================================================
+// STATE
+// ============================================================
+let canvas, ctx;
+let dots = [];
+let gridSpacing = 0, gridOffsetX = 0, gridOffsetY = 0;
+
+let walls  = [];   // {ax,ay,bx,by}
+let curves = [];   // {ax,ay,bx,by,cx,cy}  (quadratic bezier control pt)
+let pegs   = [];   // {x,y,pulseTimer}
+let balls  = [];   // {x,y,vx,vy,props,trail[],atRest,restTimer}
+
+let currentTool      = 'wall';
+let currentGridSize  = 'medium';
+let currentBallColor = 'yellow';
+let ballCountIdx     = 1;   // index into BALL_COUNTS
+
+let isDrawing    = false;
+let drawStart    = null;   // snapped dot {x,y}
+let drawGhost    = null;   // current touch pos {x,y}
+let editingCurve = null;   // curve whose handle is being dragged
+
+let lastTimestamp = 0;
+let physicsAccum  = 0;
+let nextBallId    = 0;
+
+// ============================================================
+// GRID
+// ============================================================
+function setupGrid() {
+  const { cols, rows } = GRID_SIZES[currentGridSize];
+  const pad = 44;
+  const availW = canvas.width  - pad * 2;
+  const availH = canvas.height - pad * 2;
+  gridSpacing = Math.min(availW / (cols - 1), availH / (rows - 1));
+  gridOffsetX = (canvas.width  - gridSpacing * (cols - 1)) / 2;
+  gridOffsetY = (canvas.height - gridSpacing * (rows - 1)) / 2;
+
+  dots = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      dots.push({ x: gridOffsetX + c * gridSpacing, y: gridOffsetY + r * gridSpacing });
+    }
+  }
+}
+
+function snapToDot(x, y) {
+  let best = null, bestDist = SNAP_RADIUS;
+  for (const d of dots) {
+    const dist = Math.hypot(d.x - x, d.y - y);
+    if (dist < bestDist) { bestDist = dist; best = d; }
+  }
+  return best;
+}
+
+// ============================================================
+// CANVAS / RESIZE
+// ============================================================
+function resizeCanvas() {
+  const container = document.getElementById('canvas-container');
+  canvas.width  = container.clientWidth;
+  canvas.height = container.clientHeight;
+  setupGrid();
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let cx, cy;
+  if (e.changedTouches && e.changedTouches.length > 0) {
+    cx = e.changedTouches[0].clientX;
+    cy = e.changedTouches[0].clientY;
+  } else if (e.touches && e.touches.length > 0) {
+    cx = e.touches[0].clientX;
+    cy = e.touches[0].clientY;
+  } else {
+    cx = e.clientX;
+    cy = e.clientY;
+  }
+  return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+}
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+function onStart(x, y) {
+  if (currentTool === 'peg') {
+    const dot = snapToDot(x, y);
+    if (dot && !pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4)) {
+      pegs.push({ x: dot.x, y: dot.y, pulseTimer: 0 });
+    }
+    return;
+  }
+
+  if (currentTool === 'eraser') {
+    eraseAt(x, y);
+    return;
+  }
+
+  // Curve handle drag?
+  if (currentTool === 'curve') {
+    for (const c of curves) {
+      if (Math.hypot(c.cx - x, c.cy - y) <= HANDLE_RADIUS + 12) {
+        editingCurve = c;
+        return;
+      }
+    }
+  }
+
+  // Wall or Curve: start drawing from a dot
+  const dot = snapToDot(x, y);
+  if (dot) {
+    isDrawing = true;
+    drawStart = { x: dot.x, y: dot.y };
+    drawGhost = { x, y };
+  }
+}
+
+let lastEraseMs = 0;
+function onMove(x, y) {
+  if (editingCurve) {
+    editingCurve.cx = x;
+    editingCurve.cy = y;
+    return;
+  }
+  if (isDrawing) {
+    drawGhost = { x, y };
+  }
+  if (currentTool === 'eraser') {
+    const now = Date.now();
+    if (now - lastEraseMs > 80) { eraseAt(x, y); lastEraseMs = now; }
+  }
+}
+
+function onEnd(x, y) {
+  if (editingCurve) { editingCurve = null; return; }
+  if (!isDrawing) return;
+  isDrawing = false;
+
+  const endDot = snapToDot(x, y);
+  if (endDot && drawStart && Math.hypot(endDot.x - drawStart.x, endDot.y - drawStart.y) > 6) {
+    const { x: ax, y: ay } = drawStart;
+    const { x: bx, y: by } = endDot;
+    if (currentTool === 'wall') {
+      walls.push({ ax, ay, bx, by });
+    } else if (currentTool === 'curve') {
+      curves.push({ ax, ay, bx, by, cx: (ax+bx)/2, cy: (ay+by)/2 });
+    }
+  }
+  drawStart = null;
+  drawGhost = null;
+}
+
+function eraseAt(x, y) {
+  const ED = 24; // extra erase dist
+
+  // Pegs first
+  for (let i = pegs.length - 1; i >= 0; i--) {
+    if (Math.hypot(pegs[i].x - x, pegs[i].y - y) < PEG_RADIUS + ED) {
+      pegs.splice(i, 1); return;
+    }
+  }
+  // Curves
+  for (let i = curves.length - 1; i >= 0; i--) {
+    const c = curves[i];
+    if (distToCurve(x, y, c) < WALL_HALF_W + ED ||
+        Math.hypot(c.cx - x, c.cy - y) < HANDLE_RADIUS + ED) {
+      curves.splice(i, 1); return;
+    }
+  }
+  // Walls
+  for (let i = walls.length - 1; i >= 0; i--) {
+    const w = walls[i];
+    if (distToSeg(x, y, w.ax, w.ay, w.bx, w.by) < WALL_HALF_W + ED) {
+      walls.splice(i, 1); return;
+    }
+  }
+}
+
+function setupInput() {
+  const opts = { passive: false };
+  canvas.addEventListener('mousedown',  e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); });
+  canvas.addEventListener('mousemove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  });
+  canvas.addEventListener('mouseup',    e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   });
+  canvas.addEventListener('mouseleave', e => { if(isDrawing||editingCurve){ const p=getPos(e); onEnd(p.x,p.y); } });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); }, opts);
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  }, opts);
+  canvas.addEventListener('touchend',   e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   }, opts);
+  canvas.addEventListener('touchcancel',e => { isDrawing=false; editingCurve=null; drawStart=null; drawGhost=null; }, opts);
+}
+
+// ============================================================
+// MATH HELPERS
+// ============================================================
+function closestPtOnSeg(px, py, ax, ay, bx, by) {
+  const dx = bx-ax, dy = by-ay;
+  const lenSq = dx*dx + dy*dy;
+  if (lenSq < 0.001) return { x: ax, y: ay };
+  const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+  return { x: ax + t*dx, y: ay + t*dy };
+}
+
+function distToSeg(px, py, ax, ay, bx, by) {
+  const cp = closestPtOnSeg(px, py, ax, ay, bx, by);
+  return Math.hypot(px - cp.x, py - cp.y);
+}
+
+function bezierPt(t, ax, ay, cx, cy, bx, by) {
+  const mt = 1 - t;
+  return { x: mt*mt*ax + 2*mt*t*cx + t*t*bx, y: mt*mt*ay + 2*mt*t*cy + t*t*by };
+}
+
+function sampleCurve(c, n=20) {
+  const segs = [];
+  let prev = bezierPt(0, c.ax, c.ay, c.cx, c.cy, c.bx, c.by);
+  for (let i = 1; i <= n; i++) {
+    const pt = bezierPt(i/n, c.ax, c.ay, c.cx, c.cy, c.bx, c.by);
+    segs.push({ ax: prev.x, ay: prev.y, bx: pt.x, by: pt.y });
+    prev = pt;
+  }
+  return segs;
+}
+
+function distToCurve(x, y, c) {
+  let min = Infinity;
+  for (const s of sampleCurve(c, 12)) min = Math.min(min, distToSeg(x, y, s.ax, s.ay, s.bx, s.by));
+  return min;
+}
+
+// ============================================================
+// PHYSICS
+// ============================================================
+function reflectSeg(ball, ax, ay, bx, by) {
+  const cp = closestPtOnSeg(ball.x, ball.y, ax, ay, bx, by);
+  const dx = ball.x - cp.x, dy = ball.y - cp.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const minD = ball.props.radius + WALL_HALF_W;
+  if (dist >= minD || dist < 0.001) return false;
+
+  const nx = dx/dist, ny = dy/dist;
+  ball.x += nx * (minD - dist);
+  ball.y += ny * (minD - dist);
+
+  const dot = ball.vx*nx + ball.vy*ny;
+  if (dot < 0) {
+    const r = ball.props.restitution;
+    ball.vx -= (1+r) * dot * nx;
+    ball.vy -= (1+r) * dot * ny;
+    // Light friction tangential
+    ball.vx *= 0.995;
+    ball.vy *= 0.995;
+  }
+  return true;
+}
+
+function updatePhysics(dt) {
+  const W = canvas.width, H = canvas.height;
+
+  // Update each ball
+  for (let i = balls.length - 1; i >= 0; i--) {
+    const b = balls[i];
+    if (b.atRest) continue;
+
+    // Trail
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > 6) b.trail.shift();
+
+    // Gravity
+    b.vy += GRAVITY * dt;
+
+    // Move
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+
+    // Wall collisions
+    for (const w of walls) reflectSeg(b, w.ax, w.ay, w.bx, w.by);
+
+    // Curve collisions
+    for (const c of curves) {
+      for (const s of sampleCurve(c, 20)) reflectSeg(b, s.ax, s.ay, s.bx, s.by);
+    }
+
+    // Peg collisions
+    for (const peg of pegs) {
+      const dx = b.x - peg.x, dy = b.y - peg.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minD = b.props.radius + PEG_RADIUS;
+      if (dist < minD && dist > 0.001) {
+        const nx = dx/dist, ny = dy/dist;
+        b.x += nx * (minD - dist);
+        b.y += ny * (minD - dist);
+        const dot = b.vx*nx + b.vy*ny;
+        if (dot < 0) {
+          const r = b.props.restitution;
+          b.vx -= (1+r) * dot * nx;
+          b.vy -= (1+r) * dot * ny;
+          // Plinko random kick ±6°
+          const ang = (Math.random()-0.5) * (12 * Math.PI/180);
+          const cos = Math.cos(ang), sin = Math.sin(ang);
+          const nvx = b.vx*cos - b.vy*sin;
+          const nvy = b.vx*sin + b.vy*cos;
+          b.vx = nvx; b.vy = nvy;
+          peg.pulseTimer = 0.28;
+        }
+      }
+    }
+
+    // Boundary: left / right
+    const r = b.props.radius;
+    if (b.x - r < 0) { b.x = r; b.vx = Math.abs(b.vx) * b.props.restitution; }
+    if (b.x + r > W) { b.x = W-r; b.vx = -Math.abs(b.vx) * b.props.restitution; }
+
+    // Boundary: bottom
+    if (b.y + r > H) {
+      b.y = H - r;
+      if (b.vy > 0) b.vy = -b.vy * b.props.restitution;
+      b.vx *= 0.97;  // ground friction
+    }
+
+    // Off-screen removal (top only, shouldn't happen normally)
+    if (b.y > H + 120) { balls.splice(i, 1); continue; }
+
+    // Rest detection
+    const speed = Math.hypot(b.vx, b.vy);
+    if (speed < REST_SPEED) {
+      b.restTimer += dt;
+      if (b.restTimer > REST_TIME) {
+        b.atRest = true;
+        b.vx = 0; b.vy = 0;
+        b.trail = [];
+      }
+      // Gentle damping at low speed
+      b.vx *= 0.97;
+      b.vy *= 0.97;
+    } else {
+      b.restTimer = 0;
+    }
+  }
+
+  // Ball-ball collisions (O(n²) — fine for ≤200)
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i+1; j < balls.length; j++) {
+      const a = balls[i], b = balls[j];
+      if (a.atRest && b.atRest) continue;
+
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minD = a.props.radius + b.props.radius;
+      if (dist >= minD || dist < 0.001) continue;
+
+      const nx = dx/dist, ny = dy/dist;
+      const overlap = (minD - dist) * 0.5;
+      a.x -= nx*overlap; a.y -= ny*overlap;
+      b.x += nx*overlap; b.y += ny*overlap;
+
+      const ma = a.props.mass, mb = b.props.mass;
+      const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
+      const relV = dvx*nx + dvy*ny;
+      if (relV > 0) {
+        const impulse = (2 * relV) / (ma + mb);
+        a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
+        b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
+        if (a.atRest) { a.atRest = false; a.restTimer = 0; }
+        if (b.atRest) { b.atRest = false; b.restTimer = 0; }
+      }
+    }
+  }
+
+  // Peg pulse decay
+  for (const p of pegs) { if (p.pulseTimer > 0) p.pulseTimer -= dt; }
+}
+
+function spawnBalls() {
+  const count = BALL_COUNTS[ballCountIdx];
+  const props = { ...BALL_PROPS[currentBallColor] };
+  const { cols } = GRID_SIZES[currentGridSize];
+  const totalW = gridSpacing * (cols - 1);
+
+  for (let i = 0; i < count; i++) {
+    if (balls.length >= MAX_BALLS) break;
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const jx = (Math.random() - 0.5) * gridSpacing * 0.9;
+    const jy = (Math.random() - 0.5) * 18;
+    const vy = 130 * props.speed + Math.random() * 40;
+    balls.push({
+      id: nextBallId++,
+      x: gridOffsetX + t * totalW + jx,
+      y: gridOffsetY - 28 + jy,
+      vx: (Math.random() - 0.5) * 55,
+      vy,
+      props,
+      trail: [],
+      atRest: false,
+      restTimer: 0,
+    });
+  }
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function drawGrid() {
+  ctx.fillStyle = 'rgba(90, 115, 170, 0.38)';
+  for (const d of dots) {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, DOT_RADIUS, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawWalls() {
+  ctx.lineCap = 'round';
+  ctx.lineWidth = WALL_HALF_W * 2;
+  ctx.strokeStyle = '#D4B896';
+  ctx.shadowColor = 'rgba(212,184,150,0.35)';
+  ctx.shadowBlur = 5;
+  for (const w of walls) {
+    ctx.beginPath();
+    ctx.moveTo(w.ax, w.ay);
+    ctx.lineTo(w.bx, w.by);
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+}
+
+function drawCurves() {
+  const showHandles = currentTool === 'curve' || currentTool === 'eraser';
+  for (const c of curves) {
+    // Curve itself
+    ctx.save();
+    ctx.strokeStyle = '#88CCEE';
+    ctx.lineWidth = WALL_HALF_W * 2;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(136,204,238,0.35)';
+    ctx.shadowBlur = 5;
+    ctx.beginPath();
+    ctx.moveTo(c.ax, c.ay);
+    ctx.quadraticCurveTo(c.cx, c.cy, c.bx, c.by);
+    ctx.stroke();
+    ctx.restore();
+
+    if (showHandles) {
+      // Dashed guide lines to control point
+      ctx.save();
+      ctx.strokeStyle = 'rgba(136,204,238,0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(c.ax, c.ay);
+      ctx.lineTo(c.cx, c.cy);
+      ctx.lineTo(c.bx, c.by);
+      ctx.stroke();
+      ctx.restore();
+
+      // Handle circle
+      ctx.beginPath();
+      ctx.arc(c.cx, c.cy, HANDLE_RADIUS, 0, Math.PI*2);
+      ctx.fillStyle = '#88CCEE';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPegs() {
+  for (const peg of pegs) {
+    const pulse = Math.max(0, peg.pulseTimer);
+    const extra = pulse > 0 ? Math.sin((pulse / 0.28) * Math.PI) * 5 : 0;
+    const r = PEG_RADIUS + extra;
+
+    ctx.save();
+    ctx.shadowColor = pulse > 0 ? '#FFD700' : 'rgba(255,185,0,0.4)';
+    ctx.shadowBlur  = pulse > 0 ? 18 : 7;
+    ctx.beginPath();
+    ctx.arc(peg.x, peg.y, r, 0, Math.PI*2);
+
+    // Gradient fill
+    const grad = ctx.createRadialGradient(peg.x - r*0.3, peg.y - r*0.3, r*0.1, peg.x, peg.y, r);
+    grad.addColorStop(0, pulse > 0 ? '#FFE040' : '#FFC820');
+    grad.addColorStop(1, pulse > 0 ? '#FF9000' : '#CC8800');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBalls() {
+  for (const b of balls) {
+    const p = b.props;
+    const r = p.radius;
+
+    // Trail
+    if (!b.atRest && b.trail.length > 1) {
+      ctx.save();
+      for (let i = 0; i < b.trail.length; i++) {
+        const alpha = (i+1) / b.trail.length * 0.38;
+        const tr = r * (i+1) / b.trail.length * 0.9;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(b.trail[i].x, b.trail[i].y, tr, 0, Math.PI*2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Glow + ball
+    ctx.save();
+    ctx.shadowColor = p.glow;
+    ctx.shadowBlur  = 12;
+
+    const grad = ctx.createRadialGradient(b.x - r*0.32, b.y - r*0.32, r*0.08, b.x, b.y, r);
+    grad.addColorStop(0, lighten(p.color, 40));
+    grad.addColorStop(0.6, p.color);
+    grad.addColorStop(1, darken(p.color, 25));
+
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+
+    // Specular highlight
+    ctx.beginPath();
+    ctx.arc(b.x - r*0.3, b.y - r*0.32, r*0.32, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.48)';
+    ctx.fill();
+  }
+}
+
+function drawGhost() {
+  if (!isDrawing || !drawStart || !drawGhost) return;
+  const snapEnd = snapToDot(drawGhost.x, drawGhost.y);
+  const ex = snapEnd ? snapEnd.x : drawGhost.x;
+  const ey = snapEnd ? snapEnd.y : drawGhost.y;
+
+  ctx.save();
+  ctx.setLineDash([9, 8]);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = WALL_HALF_W * 2;
+  ctx.strokeStyle = currentTool === 'curve' ? 'rgba(136,204,238,0.55)' : 'rgba(212,184,150,0.55)';
+  ctx.beginPath();
+  ctx.moveTo(drawStart.x, drawStart.y);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.restore();
+
+  // Highlight start and end dots
+  const hlColor = currentTool === 'curve' ? 'rgba(136,204,238,0.85)' : 'rgba(212,184,150,0.85)';
+  ctx.beginPath();
+  ctx.arc(drawStart.x, drawStart.y, DOT_RADIUS + 5, 0, Math.PI*2);
+  ctx.fillStyle = hlColor; ctx.fill();
+  if (snapEnd) {
+    ctx.beginPath();
+    ctx.arc(snapEnd.x, snapEnd.y, DOT_RADIUS + 5, 0, Math.PI*2);
+    ctx.fillStyle = hlColor; ctx.fill();
+  }
+}
+
+function render(ts) {
+  requestAnimationFrame(render);
+
+  const rawDt = Math.min((ts - lastTimestamp) / 1000, 0.05);
+  lastTimestamp = ts;
+  physicsAccum += rawDt;
+
+  while (physicsAccum >= FIXED_DT) {
+    updatePhysics(FIXED_DT);
+    physicsAccum -= FIXED_DT;
+  }
+
+  // Background
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  drawWalls();
+  drawCurves();
+  drawPegs();
+  drawBalls();
+  drawGhost();
+}
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+function parseHex(hex) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+function lighten(hex, amt) {
+  const [r,g,b] = parseHex(hex);
+  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+}
+function darken(hex, amt) {
+  const [r,g,b] = parseHex(hex);
+  return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
+}
+
+// ============================================================
+// UI CONTROLS
+// ============================================================
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + tool).classList.add('active');
+  isDrawing = false; drawStart = null; drawGhost = null; editingCurve = null;
+}
+
+function setGridSize(size) {
+  currentGridSize = size;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  const ids = { small: 'S', medium: 'M', large: 'L' };
+  document.getElementById('size-' + ids[size]).classList.add('active');
+  setupGrid();
+}
+
+function setBallColor(color) {
+  currentBallColor = color;
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + color).classList.add('active');
+}
+
+function changeBallCount(dir) {
+  ballCountIdx = Math.max(0, Math.min(BALL_COUNTS.length - 1, ballCountIdx + dir));
+  document.getElementById('count-display').textContent = BALL_COUNTS[ballCountIdx];
+}
+
+function dropBalls() {
+  if (balls.length >= MAX_BALLS) return;
+  spawnBalls();
+  const btn = document.getElementById('drop-btn');
+  btn.style.transform = 'scale(0.90)';
+  setTimeout(() => { btn.style.transform = ''; }, 160);
+}
+
+function clearAll() {
+  if (walls.length + curves.length + pegs.length + balls.length === 0) return;
+  if (confirm('Clear everything and start over?')) {
+    walls = []; curves = []; pegs = []; balls = [];
+    isDrawing = false; drawStart = null; drawGhost = null; editingCurve = null;
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+
+  resizeCanvas();
+  setupInput();
+
+  window.addEventListener('resize', () => { resizeCanvas(); });
+
+  // Sync count display
+  document.getElementById('count-display').textContent = BALL_COUNTS[ballCountIdx];
+
+  lastTimestamp = performance.now();
+  requestAnimationFrame(render);
+}
+
+init();
+</script>
+</body>
+</html>
