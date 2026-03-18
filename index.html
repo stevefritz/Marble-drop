@@ -835,6 +835,9 @@ function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tangBoost) 
 function updatePhysics(dt) {
   const W = canvas.width, H = canvas.height;
 
+  // GC zone: bottom 10% of playable grid area
+  const gcZoneY = gridOffsetY + gridSpacing * (gridRows - 1) * 0.9;
+
   // Update each ball
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
@@ -843,6 +846,23 @@ function updatePhysics(dt) {
     if (b.atRest) {
       b.fadeTimer += dt;
       b.opacity = Math.max(0, 1.0 - b.fadeTimer / FADE_DURATION);
+      if (b.opacity <= 0) { balls.splice(i, 1); }
+      continue;
+    }
+
+    // GC zone tracking — count continuous time in bottom 10% of grid
+    if (b.y > gcZoneY) {
+      b.gcTimer += dt;
+    } else if (!b.gcFading) {
+      b.gcTimer = 0;  // reset if ball leaves zone (unless fade already triggered)
+    }
+    if (b.gcTimer >= 3.0 && !b.gcFading) {
+      b.gcFading = true;  // lock in the fade — cannot be undone
+    }
+
+    // GC fading: ghost mode — fade out and remove, skip all physics
+    if (b.gcFading) {
+      b.opacity -= dt / 1.5;
       if (b.opacity <= 0) { balls.splice(i, 1); }
       continue;
     }
@@ -956,6 +976,7 @@ function updatePhysics(dt) {
     for (let j = i+1; j < balls.length; j++) {
       const a = balls[i], b = balls[j];
       if (a.atRest && b.atRest) continue;
+      if (a.gcFading || b.gcFading) continue;
 
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -1032,6 +1053,8 @@ function spawnBalls() {
       restTimer: 0,
       fadeTimer: 0,
       opacity: 1.0,
+      gcTimer: 0,
+      gcFading: false,
     });
   }
 }
@@ -1149,7 +1172,7 @@ function drawBalls() {
     const p = b.props;
     const opacity = b.opacity !== undefined ? b.opacity : 1.0;
     // Shrink slightly while resting and fading for satisfying disappearance
-    const r = b.atRest ? p.radius * (0.7 + 0.3 * opacity) : p.radius;
+    const r = (b.atRest || b.gcFading) ? p.radius * (0.7 + 0.3 * opacity) : p.radius;
 
     ctx.save();
     ctx.globalAlpha = opacity;
@@ -1251,7 +1274,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.6', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v1.7', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
