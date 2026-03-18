@@ -373,6 +373,7 @@ const PLAY_ZONE_MARGIN    = 0.10;  // outer 10% each side = center 80% play zone
 let canvas, ctx;
 let dots = [];
 let gridSpacing = 0, gridOffsetX = 0, gridOffsetY = 0;
+let gridCols = 0, gridRows = 0;
 
 let walls  = [];   // {ax,ay,bx,by}
 let curves = [];   // {ax,ay,bx,by,cx,cy}  (quadratic bezier control pt)
@@ -397,25 +398,29 @@ let nextBallId    = 0;
 // GRID
 // ============================================================
 function setupGrid() {
-  const { cols, rows } = GRID_SIZES[currentGridSize];
   const padX = 12;   // tight horizontal padding — fills edge-to-edge
-  const padY = 28;   // more vertical breathing room for hopper bar and bottom
+  const padY = 22;   // vertical breathing room
   const availW = canvas.width  - padX * 2;
   const availH = canvas.height - padY * 2;
-  gridSpacing = Math.min(availW / (cols - 1), availH / (rows - 1));
-  gridOffsetX = (canvas.width  - gridSpacing * (cols - 1)) / 2;
-  gridOffsetY = (canvas.height - gridSpacing * (rows - 1)) / 2;
+  // Dynamically compute cols/rows from aspect ratio to fill canvas in both dimensions
+  const targetSpacing = { small: 80, medium: 55, large: 38 }[currentGridSize];
+  gridCols = Math.max(4, Math.round(availW / targetSpacing) + 1);
+  gridRows = Math.max(3, Math.round(availH / targetSpacing) + 1);
+  gridSpacing = Math.min(availW / (gridCols - 1), availH / (gridRows - 1));
+  gridOffsetX = (canvas.width  - gridSpacing * (gridCols - 1)) / 2;
+  gridOffsetY = (canvas.height - gridSpacing * (gridRows - 1)) / 2;
 
   dots = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
       dots.push({ x: gridOffsetX + c * gridSpacing, y: gridOffsetY + r * gridSpacing });
     }
   }
 }
 
 function snapToDot(x, y) {
-  let best = null, bestDist = SNAP_RADIUS;
+  const snapR = Math.min(SNAP_RADIUS, gridSpacing * 0.5);
+  let best = null, bestDist = snapR;
   for (const d of dots) {
     const dist = Math.hypot(d.x - x, d.y - y);
     if (dist < bestDist) { bestDist = dist; best = d; }
@@ -810,8 +815,7 @@ function updatePhysics(dt) {
 function spawnBalls() {
   const count = BALL_COUNTS[ballCountIdx];
   const props = { ...BALL_PROPS[currentBallColor] };
-  const { cols } = GRID_SIZES[currentGridSize];
-  const totalW = gridSpacing * (cols - 1);
+  const totalW = gridSpacing * (gridCols - 1);
   const br = props.radius;
   const playLeft  = canvas.width * PLAY_ZONE_MARGIN + br;
   const playRight = canvas.width * (1 - PLAY_ZONE_MARGIN) - br;
@@ -1048,6 +1052,15 @@ function render(ts) {
   drawPegs();
   drawBalls();
   drawGhost();
+
+  // Version watermark
+  ctx.save();
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('v1.3', canvas.width - 8, canvas.height - 8);
+  ctx.restore();
 }
 
 // ============================================================
