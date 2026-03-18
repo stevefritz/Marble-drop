@@ -363,6 +363,9 @@ const BUMPER_FACTOR_PEG   = 1.30;  // velocity boost multiplier on peg hit
 const CURVE_TANG_BOOST    = 50;    // px/s tangential (scoop) boost on curve hit
 const MAX_BALL_SPEED      = 900;   // px/s hard speed cap
 const FLASH_DURATION      = 0.15;  // seconds for hit-flash visual
+const FADE_DURATION       = 2.0;   // seconds for rest-fade
+const FADE_DURATION_EXIT  = 0.4;   // seconds for out-of-zone fade
+const PLAY_ZONE_MARGIN    = 0.10;  // outer 10% each side = center 80% play zone
 
 // ============================================================
 // STATE
@@ -374,7 +377,7 @@ let gridSpacing = 0, gridOffsetX = 0, gridOffsetY = 0;
 let walls  = [];   // {ax,ay,bx,by}
 let curves = [];   // {ax,ay,bx,by,cx,cy}  (quadratic bezier control pt)
 let pegs   = [];   // {x,y,pulseTimer}
-let balls  = [];   // {x,y,vx,vy,props,trail[],atRest,restTimer}
+let balls  = [];   // {x,y,vx,vy,props,trail[],atRest,restTimer,fading,fadeTimer,opacity}
 
 let currentTool      = 'wall';
 let currentGridSize  = 'medium';
@@ -395,7 +398,7 @@ let nextBallId    = 0;
 // ============================================================
 function setupGrid() {
   const { cols, rows } = GRID_SIZES[currentGridSize];
-  const pad = 15;
+  const pad = 22;
   const availW = canvas.width  - pad * 2;
   const availH = canvas.height - pad * 2;
   gridSpacing = Math.min(availW / (cols - 1), availH / (rows - 1));
@@ -653,13 +656,18 @@ function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tangBoost) 
 function updatePhysics(dt) {
   const W = canvas.width, H = canvas.height;
 
+  const playLeft  = W * PLAY_ZONE_MARGIN;
+  const playRight = W * (1 - PLAY_ZONE_MARGIN);
+
   // Update each ball
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
+
+    // Resting balls: fade out then remove
     if (b.atRest) {
-      // Fade out resting balls over ~2 seconds then remove them
-      b.fadeAlpha -= dt / 2.0;
-      if (b.fadeAlpha <= 0) balls.splice(i, 1);
+      b.fadeTimer += dt;
+      b.opacity = Math.max(0, 1.0 - b.fadeTimer / FADE_DURATION);
+      if (b.opacity <= 0) { balls.splice(i, 1); }
       continue;
     }
 
@@ -667,9 +675,11 @@ function updatePhysics(dt) {
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 6) b.trail.shift();
 
+    const br = b.props.radius;
+
     // Substep: if moving fast enough to potentially tunnel, use 2 sub-steps
     const spd0 = Math.hypot(b.vx, b.vy);
-    const substeps = (spd0 * dt > b.props.radius * 0.85) ? 2 : 1;
+    const substeps = (spd0 * dt > br * 0.85) ? 2 : 1;
     const subDt = dt / substeps;
 
     for (let sub = 0; sub < substeps; sub++) {
@@ -719,13 +729,6 @@ function updatePhysics(dt) {
         }
       }
 
-      // Boundary: left / right — soft walls at 10% inset to keep balls in center playfield
-      const br = b.props.radius;
-      const leftBound  = W * 0.1;
-      const rightBound = W * 0.9;
-      if (b.x - br < leftBound)  { b.x = leftBound + br;  b.vx =  Math.abs(b.vx) * 0.3; }
-      if (b.x + br > rightBound) { b.x = rightBound - br; b.vx = -Math.abs(b.vx) * 0.3; }
-
       // Boundary: bottom
       if (b.y + br > H) {
         b.y = H - br;
@@ -736,6 +739,19 @@ function updatePhysics(dt) {
 
     // Off-screen removal (top only, shouldn't happen normally)
     if (b.y > H + 120) { balls.splice(i, 1); continue; }
+
+    // Play zone exit: ball drifted into outer 10% — start fast fade
+    if (!b.fading && (b.x - br < playLeft || b.x + br > playRight)) {
+      b.fading = true;
+      b.fadeTimer = 0;
+    }
+
+    // Advance exit-fade and remove when done
+    if (b.fading) {
+      b.fadeTimer += dt;
+      b.opacity = Math.max(0, 1.0 - b.fadeTimer / FADE_DURATION_EXIT);
+      if (b.opacity <= 0) { balls.splice(i, 1); continue; }
+    }
 
     // Rest detection
     const speed = Math.hypot(b.vx, b.vy);
@@ -758,7 +774,7 @@ function updatePhysics(dt) {
   for (let i = 0; i < balls.length; i++) {
     for (let j = i+1; j < balls.length; j++) {
       const a = balls[i], b = balls[j];
-      if (a.atRest || b.atRest) continue;  // fading balls are ghosts — no collision
+      if (a.atRest && b.atRest) continue;
 
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
@@ -777,8 +793,8 @@ function updatePhysics(dt) {
         const impulse = (2 * relV) / (ma + mb);
         a.vx -= impulse * mb * nx; a.vy -= impulse * mb * ny;
         b.vx += impulse * ma * nx; b.vy += impulse * ma * ny;
-        if (a.atRest) { a.atRest = false; a.restTimer = 0; }
-        if (b.atRest) { b.atRest = false; b.restTimer = 0; }
+        if (a.atRest) { a.atRest = false; a.restTimer = 0; a.fadeTimer = 0; a.opacity = 1.0; }
+        if (b.atRest) { b.atRest = false; b.restTimer = 0; b.fadeTimer = 0; b.opacity = 1.0; }
       }
     }
   }
@@ -795,6 +811,9 @@ function spawnBalls() {
   const props = { ...BALL_PROPS[currentBallColor] };
   const { cols } = GRID_SIZES[currentGridSize];
   const totalW = gridSpacing * (cols - 1);
+  const br = props.radius;
+  const playLeft  = canvas.width * PLAY_ZONE_MARGIN + br;
+  const playRight = canvas.width * (1 - PLAY_ZONE_MARGIN) - br;
 
   for (let i = 0; i < count; i++) {
     if (balls.length >= MAX_BALLS) break;
@@ -802,9 +821,10 @@ function spawnBalls() {
     const jx = (Math.random() - 0.5) * gridSpacing * 0.9;
     const jy = (Math.random() - 0.5) * 18;
     const vy = 130 * props.speed + Math.random() * 40;
+    const rawX = gridOffsetX + t * totalW + jx;
     balls.push({
       id: nextBallId++,
-      x: gridOffsetX + t * totalW + jx,
+      x: Math.max(playLeft, Math.min(playRight, rawX)),
       y: gridOffsetY - 28 + jy,
       vx: (Math.random() - 0.5) * 55,
       vy,
@@ -812,7 +832,9 @@ function spawnBalls() {
       trail: [],
       atRest: false,
       restTimer: 0,
-      fadeAlpha: 1.0,
+      fading: false,
+      fadeTimer: 0,
+      opacity: 1.0,
     });
   }
 }
@@ -928,27 +950,28 @@ function drawPegs() {
 function drawBalls() {
   for (const b of balls) {
     const p = b.props;
-    const r = p.radius;
-    const alpha = b.fadeAlpha !== undefined ? b.fadeAlpha : 1.0;
+    const opacity = b.opacity !== undefined ? b.opacity : 1.0;
+    // Shrink slightly while resting and fading for satisfying disappearance
+    const r = b.atRest ? p.radius * (0.7 + 0.3 * opacity) : p.radius;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
 
     // Trail
     if (!b.atRest && b.trail.length > 1) {
-      ctx.save();
       for (let i = 0; i < b.trail.length; i++) {
-        const trAlpha = (i+1) / b.trail.length * 0.38 * alpha;
+        const alpha = (i+1) / b.trail.length * 0.38;
         const tr = r * (i+1) / b.trail.length * 0.9;
-        ctx.globalAlpha = trAlpha;
+        ctx.globalAlpha = opacity * alpha;
         ctx.beginPath();
         ctx.arc(b.trail[i].x, b.trail[i].y, tr, 0, Math.PI*2);
         ctx.fillStyle = p.color;
         ctx.fill();
       }
-      ctx.restore();
+      ctx.globalAlpha = opacity;
     }
 
     // Glow + ball
-    ctx.save();
-    ctx.globalAlpha = alpha;
     ctx.shadowColor = p.glow;
     ctx.shadowBlur  = 12;
 
@@ -961,15 +984,15 @@ function drawBalls() {
     ctx.arc(b.x, b.y, r, 0, Math.PI*2);
     ctx.fillStyle = grad;
     ctx.fill();
-    ctx.restore();
 
     // Specular highlight
-    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.arc(b.x - r*0.3, b.y - r*0.32, r*0.32, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(255,255,255,0.48)';
     ctx.fill();
-    ctx.globalAlpha = 1.0;
+
+    ctx.restore();
   }
 }
 
