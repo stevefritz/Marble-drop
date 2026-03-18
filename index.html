@@ -305,13 +305,13 @@ html, body {
 
     <div id="tool-palette">
       <div class="palette-label">Tools</div>
-      <button class="tool-btn active" id="btn-wall"   onclick="setTool('wall')">🧱 Wall</button>
-      <button class="tool-btn"        id="btn-curve"  onclick="setTool('curve')">〜 Curve</button>
-      <button class="tool-btn"        id="btn-peg"    onclick="setTool('peg')">⬤ Peg</button>
-      <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">✕ Erase</button>
+      <button class="tool-btn active" id="btn-wall"   onclick="setTool('wall')">&#9646; Wall</button>
+      <button class="tool-btn"        id="btn-curve"  onclick="setTool('curve')">~ Curve</button>
+      <button class="tool-btn"        id="btn-peg"    onclick="setTool('peg')">&#9679; Peg</button>
+      <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">X Erase</button>
 
       <div class="palette-divider"></div>
-      <button id="clear-btn" onclick="clearAll()">🗑 Clear All</button>
+      <button id="clear-btn" onclick="clearAll()">Clear All</button>
 
       <div class="palette-divider"></div>
       <div class="palette-label">Grid Size</div>
@@ -416,8 +416,17 @@ function snapToDot(x, y) {
 // ============================================================
 function resizeCanvas() {
   const container = document.getElementById('canvas-container');
-  canvas.width  = container.clientWidth;
-  canvas.height = container.clientHeight;
+  let w = container.clientWidth;
+  let h = container.clientHeight;
+  // Flex layout may not have computed dimensions yet on first run (e.g. iPad Safari)
+  if (!w || !h) {
+    const palette = document.getElementById('tool-palette');
+    const hopper  = document.getElementById('hopper-bar');
+    w = window.innerWidth  - (palette.offsetWidth  || 164);
+    h = window.innerHeight - (hopper.offsetHeight  || 74);
+  }
+  canvas.width  = Math.max(w, 200);
+  canvas.height = Math.max(h, 200);
   setupGrid();
 }
 
@@ -1016,7 +1025,13 @@ function init() {
   resizeCanvas();
   setupInput();
 
-  window.addEventListener('resize', () => { resizeCanvas(); });
+  // Use ResizeObserver to catch flex-layout updates (handles iPad Safari timing gaps)
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => { resizeCanvas(); });
+    ro.observe(document.getElementById('canvas-container'));
+  } else {
+    window.addEventListener('resize', () => { resizeCanvas(); });
+  }
 
   // Sync count display
   document.getElementById('count-display').textContent = BALL_COUNTS[ballCountIdx];
@@ -1025,7 +1040,16 @@ function init() {
   requestAnimationFrame(render);
 }
 
-init();
+// Explicitly expose onclick-referenced functions on window (bulletproof in strict mode)
+window.setTool        = setTool;
+window.setGridSize    = setGridSize;
+window.setBallColor   = setBallColor;
+window.changeBallCount = changeBallCount;
+window.dropBalls      = dropBalls;
+window.clearAll       = clearAll;
+
+// Wait for full layout before init — prevents zero canvas dimensions on iPad Safari
+window.addEventListener('load', init);
 </script>
 </body>
 </html>
