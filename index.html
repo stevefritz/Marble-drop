@@ -356,6 +356,14 @@ const REST_SPEED     = 28;    // px/s threshold
 const REST_TIME      = 1.4;   // seconds at low speed before atRest
 const BALL_COUNTS    = [1, 5, 10, 25, 50];
 
+// Bumper physics
+const BUMPER_FACTOR_WALL  = 1.35;  // velocity boost multiplier on wall hit
+const BUMPER_FACTOR_CURVE = 1.25;  // velocity boost multiplier on curve hit
+const BUMPER_FACTOR_PEG   = 1.30;  // velocity boost multiplier on peg hit
+const CURVE_TANG_BOOST    = 50;    // px/s tangential (scoop) boost on curve hit
+const MAX_BALL_SPEED      = 900;   // px/s hard speed cap
+const FLASH_DURATION      = 0.15;  // seconds for hit-flash visual
+
 // ============================================================
 // STATE
 // ============================================================
@@ -598,7 +606,7 @@ function distToCurve(x, y, c) {
 // ============================================================
 // PHYSICS
 // ============================================================
-function reflectSeg(ball, ax, ay, bx, by) {
+function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tangBoost) {
   const cp = closestPtOnSeg(ball.x, ball.y, ax, ay, bx, by);
   const dx = ball.x - cp.x, dy = ball.y - cp.y;
   const dist = Math.sqrt(dx*dx + dy*dy);
@@ -617,6 +625,27 @@ function reflectSeg(ball, ax, ay, bx, by) {
     // Light friction tangential
     ball.vx *= 0.995;
     ball.vy *= 0.995;
+    // Bumper boost — impart momentum like a pinball bumper
+    if (bumperFactor > 1) {
+      ball.vx *= bumperFactor;
+      ball.vy *= bumperFactor;
+    }
+    // Tangential scoop acceleration (curves act as ramps)
+    if (tangBoost > 0) {
+      const tx = -ny, ty = nx;
+      const tangV = ball.vx * tx + ball.vy * ty;
+      const dir = tangV >= 0 ? 1 : -1;
+      ball.vx += tx * dir * tangBoost;
+      ball.vy += ty * dir * tangBoost;
+    }
+    // Hard speed cap — prevent infinite energy accumulation
+    const spd = Math.hypot(ball.vx, ball.vy);
+    if (spd > MAX_BALL_SPEED) {
+      const sc = MAX_BALL_SPEED / spd;
+      ball.vx *= sc; ball.vy *= sc;
+    }
+    // Visual flash on the hit segment's parent object
+    if (flashTarget) flashTarget.flashTimer = FLASH_DURATION;
   }
   return true;
 }
@@ -633,56 +662,69 @@ function updatePhysics(dt) {
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 6) b.trail.shift();
 
-    // Gravity
-    b.vy += GRAVITY * dt;
+    // Substep: if moving fast enough to potentially tunnel, use 2 sub-steps
+    const spd0 = Math.hypot(b.vx, b.vy);
+    const substeps = (spd0 * dt > b.props.radius * 0.85) ? 2 : 1;
+    const subDt = dt / substeps;
 
-    // Move
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
+    for (let sub = 0; sub < substeps; sub++) {
+      // Gravity
+      b.vy += GRAVITY * subDt;
 
-    // Wall collisions
-    for (const w of walls) reflectSeg(b, w.ax, w.ay, w.bx, w.by);
+      // Move
+      b.x += b.vx * subDt;
+      b.y += b.vy * subDt;
 
-    // Curve collisions
-    for (const c of curves) {
-      for (const s of sampleCurve(c, 20)) reflectSeg(b, s.ax, s.ay, s.bx, s.by);
-    }
+      // Wall collisions — bumper boost
+      for (const w of walls) reflectSeg(b, w.ax, w.ay, w.bx, w.by, BUMPER_FACTOR_WALL, w);
 
-    // Peg collisions
-    for (const peg of pegs) {
-      const dx = b.x - peg.x, dy = b.y - peg.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      const minD = b.props.radius + PEG_RADIUS;
-      if (dist < minD && dist > 0.001) {
-        const nx = dx/dist, ny = dy/dist;
-        b.x += nx * (minD - dist);
-        b.y += ny * (minD - dist);
-        const dot = b.vx*nx + b.vy*ny;
-        if (dot < 0) {
-          const r = b.props.restitution;
-          b.vx -= (1+r) * dot * nx;
-          b.vy -= (1+r) * dot * ny;
-          // Plinko random kick ±6°
-          const ang = (Math.random()-0.5) * (12 * Math.PI/180);
-          const cos = Math.cos(ang), sin = Math.sin(ang);
-          const nvx = b.vx*cos - b.vy*sin;
-          const nvy = b.vx*sin + b.vy*cos;
-          b.vx = nvx; b.vy = nvy;
-          peg.pulseTimer = 0.28;
+      // Curve collisions — bumper boost + tangential scoop
+      for (const c of curves) {
+        for (const s of sampleCurve(c, 20)) reflectSeg(b, s.ax, s.ay, s.bx, s.by, BUMPER_FACTOR_CURVE, c, CURVE_TANG_BOOST);
+      }
+
+      // Peg collisions — pinball bumper boost
+      for (const peg of pegs) {
+        const pdx = b.x - peg.x, pdy = b.y - peg.y;
+        const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
+        const pminD = b.props.radius + PEG_RADIUS;
+        if (pdist < pminD && pdist > 0.001) {
+          const pnx = pdx/pdist, pny = pdy/pdist;
+          b.x += pnx * (pminD - pdist);
+          b.y += pny * (pminD - pdist);
+          const pdot = b.vx*pnx + b.vy*pny;
+          if (pdot < 0) {
+            const r = b.props.restitution;
+            b.vx -= (1+r) * pdot * pnx;
+            b.vy -= (1+r) * pdot * pny;
+            // Peg bumper boost — feel like a pinball bumper
+            b.vx *= BUMPER_FACTOR_PEG;
+            b.vy *= BUMPER_FACTOR_PEG;
+            // Speed cap
+            const ps = Math.hypot(b.vx, b.vy);
+            if (ps > MAX_BALL_SPEED) { b.vx *= MAX_BALL_SPEED/ps; b.vy *= MAX_BALL_SPEED/ps; }
+            // Plinko random kick ±8° (slightly bigger spread)
+            const ang = (Math.random()-0.5) * (16 * Math.PI/180);
+            const cos = Math.cos(ang), sin = Math.sin(ang);
+            const nvx = b.vx*cos - b.vy*sin;
+            const nvy = b.vx*sin + b.vy*cos;
+            b.vx = nvx; b.vy = nvy;
+            peg.pulseTimer = 0.35;
+          }
         }
       }
-    }
 
-    // Boundary: left / right
-    const r = b.props.radius;
-    if (b.x - r < 0) { b.x = r; b.vx = Math.abs(b.vx) * b.props.restitution; }
-    if (b.x + r > W) { b.x = W-r; b.vx = -Math.abs(b.vx) * b.props.restitution; }
+      // Boundary: left / right
+      const br = b.props.radius;
+      if (b.x - br < 0) { b.x = br; b.vx = Math.abs(b.vx) * b.props.restitution; }
+      if (b.x + br > W) { b.x = W-br; b.vx = -Math.abs(b.vx) * b.props.restitution; }
 
-    // Boundary: bottom
-    if (b.y + r > H) {
-      b.y = H - r;
-      if (b.vy > 0) b.vy = -b.vy * b.props.restitution;
-      b.vx *= 0.97;  // ground friction
+      // Boundary: bottom
+      if (b.y + br > H) {
+        b.y = H - br;
+        if (b.vy > 0) b.vy = -b.vy * b.props.restitution;
+        b.vx *= 0.97;  // ground friction
+      }
     }
 
     // Off-screen removal (top only, shouldn't happen normally)
@@ -736,6 +778,9 @@ function updatePhysics(dt) {
 
   // Peg pulse decay
   for (const p of pegs) { if (p.pulseTimer > 0) p.pulseTimer -= dt; }
+  // Wall/curve flash decay
+  for (const w of walls)  { if (w.flashTimer > 0) w.flashTimer -= dt; }
+  for (const c of curves) { if (c.flashTimer > 0) c.flashTimer -= dt; }
 }
 
 function spawnBalls() {
@@ -779,28 +824,43 @@ function drawGrid() {
 function drawWalls() {
   ctx.lineCap = 'round';
   ctx.lineWidth = WALL_HALF_W * 2;
-  ctx.strokeStyle = '#D4B896';
-  ctx.shadowColor = 'rgba(212,184,150,0.35)';
-  ctx.shadowBlur = 5;
   for (const w of walls) {
+    const flash = Math.max(0, w.flashTimer || 0) / FLASH_DURATION;
+    ctx.save();
+    if (flash > 0) {
+      ctx.strokeStyle = '#FFFACC';
+      ctx.shadowColor = '#FFE030';
+      ctx.shadowBlur = 6 + 22 * flash;
+    } else {
+      ctx.strokeStyle = '#D4B896';
+      ctx.shadowColor = 'rgba(212,184,150,0.35)';
+      ctx.shadowBlur = 5;
+    }
     ctx.beginPath();
     ctx.moveTo(w.ax, w.ay);
     ctx.lineTo(w.bx, w.by);
     ctx.stroke();
+    ctx.restore();
   }
-  ctx.shadowBlur = 0;
 }
 
 function drawCurves() {
   const showHandles = currentTool === 'curve' || currentTool === 'eraser';
   for (const c of curves) {
+    const flash = Math.max(0, c.flashTimer || 0) / FLASH_DURATION;
     // Curve itself
     ctx.save();
-    ctx.strokeStyle = '#88CCEE';
+    if (flash > 0) {
+      ctx.strokeStyle = '#CCFFFF';
+      ctx.shadowColor = '#00EEFF';
+      ctx.shadowBlur = 6 + 22 * flash;
+    } else {
+      ctx.strokeStyle = '#88CCEE';
+      ctx.shadowColor = 'rgba(136,204,238,0.35)';
+      ctx.shadowBlur = 5;
+    }
     ctx.lineWidth = WALL_HALF_W * 2;
     ctx.lineCap = 'round';
-    ctx.shadowColor = 'rgba(136,204,238,0.35)';
-    ctx.shadowBlur = 5;
     ctx.beginPath();
     ctx.moveTo(c.ax, c.ay);
     ctx.quadraticCurveTo(c.cx, c.cy, c.bx, c.by);
@@ -835,7 +895,7 @@ function drawCurves() {
 function drawPegs() {
   for (const peg of pegs) {
     const pulse = Math.max(0, peg.pulseTimer);
-    const extra = pulse > 0 ? Math.sin((pulse / 0.28) * Math.PI) * 5 : 0;
+    const extra = pulse > 0 ? Math.sin((pulse / 0.35) * Math.PI) * 7 : 0;
     const r = PEG_RADIUS + extra;
 
     ctx.save();
