@@ -398,9 +398,10 @@ let nextBallId    = 0;
 // ============================================================
 function setupGrid() {
   const { cols, rows } = GRID_SIZES[currentGridSize];
-  const pad = 22;
-  const availW = canvas.width  - pad * 2;
-  const availH = canvas.height - pad * 2;
+  const padX = 12;   // tight horizontal padding — fills edge-to-edge
+  const padY = 28;   // more vertical breathing room for hopper bar and bottom
+  const availW = canvas.width  - padX * 2;
+  const availH = canvas.height - padY * 2;
   gridSpacing = Math.min(availW / (cols - 1), availH / (rows - 1));
   gridOffsetX = (canvas.width  - gridSpacing * (cols - 1)) / 2;
   gridOffsetY = (canvas.height - gridSpacing * (rows - 1)) / 2;
