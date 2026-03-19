@@ -837,10 +837,11 @@ const REST_TIME      = 0.6;   // seconds at low speed before atRest
 const BALL_COUNTS    = [1, 5, 10, 25, 50];
 
 // Rocket / Magazine
-const ROCKET_SPEED         = 175;    // px/s
-const ROCKET_LOCK_DURATION = 30000;  // ms after first drop before first charge
+const ROCKET_SPEED         = 700;    // px/s
+const ROCKET_LOCK_DURATION = 15000;  // ms after first drop before first charge
 const ROCKET_RADIUS        = 14;     // px collision radius
-const ROCKET_FADE_TIME     = 0.3;    // seconds to fade on exit
+const ROCKET_FADE_TIME     = 0.5;    // seconds to fade on expiry
+const ROCKET_LIFESPAN      = 10;     // seconds before rocket expires
 const MAGAZINE_CAPACITY    = 3;      // max rockets
 const MAGAZINE_CHARGE_TIME = 10000;  // ms per subsequent charge
 
@@ -1380,9 +1381,33 @@ function updatePhysics(dt) {
       r.opacity = Math.max(0, 1.0 - r.fadeTimer / ROCKET_FADE_TIME);
       if (r.opacity <= 0) rockets.splice(ri, 1);
     } else {
+      // Age the rocket — start fading at lifespan
+      r.age += dt;
+      if (r.age >= ROCKET_LIFESPAN) {
+        r.fading = true;
+        r.fadeTimer = 0;
+        continue;
+      }
+      // Warning dimming in last 3 seconds (7–10s)
+      const WARN_START = ROCKET_LIFESPAN - 3;
+      if (r.age >= WARN_START) {
+        const t = (r.age - WARN_START) / 3;
+        r.opacity = 1.0 - t * 0.6;  // dims from 1.0 → 0.4
+      } else {
+        r.opacity = 1.0;
+      }
+
       // Move — no gravity
       r.x += r.vx * dt;
       r.y += r.vy * dt;
+
+      // Bounce off all screen edges
+      const W = canvas.width, H = canvas.height;
+      const rr = ROCKET_RADIUS;
+      if (r.x - rr < 0)   { r.x = rr;     r.vx =  Math.abs(r.vx); }
+      else if (r.x + rr > W) { r.x = W - rr; r.vx = -Math.abs(r.vx); }
+      if (r.y - rr < 0)   { r.y = rr;     r.vy =  Math.abs(r.vy); }
+      else if (r.y + rr > H) { r.y = H - rr; r.vy = -Math.abs(r.vy); }
 
       // Ball collision — absorb on contact
       for (let i = balls.length - 1; i >= 0; i--) {
@@ -1394,12 +1419,6 @@ function updatePhysics(dt) {
           balls.splice(i, 1);
           addScore(10);
         }
-      }
-
-      // Off-screen → begin fade
-      const W = canvas.width, H = canvas.height;
-      if (r.x < -50 || r.x > W + 50 || r.y < -50 || r.y > H + 50) {
-        r.fading = true;
       }
     }
   }
@@ -1928,6 +1947,7 @@ function tryFireRocket(tx, ty) {
     opacity: 1.0,
     fading: false,
     fadeTimer: 0,
+    age: 0,
   });
   soundEngine.playRocketFire();
 }
@@ -2028,7 +2048,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v2.3', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v2.4', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
