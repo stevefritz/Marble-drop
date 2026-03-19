@@ -642,7 +642,7 @@ const BALL_COUNTS    = [1, 5, 10, 25, 50];
 const ROCKET_SPEED         = 175;    // px/s
 const ROCKET_COOLDOWN      = 10000;  // ms
 const ROCKET_LOCK_DURATION = 30000;  // ms after first drop
-const ROCKET_RADIUS        = 8;      // px collision radius
+const ROCKET_RADIUS        = 14;     // px collision radius
 const ROCKET_FADE_TIME     = 0.3;    // seconds to fade on exit
 
 // Bumper physics
@@ -1443,22 +1443,75 @@ function drawGhost() {
 
 function drawTurret() {
   const tx = canvas.width / 2;
-  const ty = 18;
+  const ty = 0;
   const active = currentTool === 'rocket';
   ctx.save();
-  ctx.shadowColor = active ? '#ff6600' : '#334466';
-  ctx.shadowBlur  = active ? 18 : 4;
-  // Base bar
-  ctx.fillStyle = active ? '#FF6600' : '#2a3a55';
-  ctx.fillRect(tx - 14, ty - 9, 28, 7);
-  // Barrel — triangle pointing down toward canvas
+
+  // Glow when active
+  if (active) {
+    ctx.shadowColor = '#FF6600';
+    ctx.shadowBlur  = 28;
+  }
+
+  // Mounting base — wide trapezoid at very top
+  const baseW = 70, baseH = 14;
   ctx.beginPath();
-  ctx.moveTo(tx, ty + 14);
-  ctx.lineTo(tx - 7, ty - 3);
-  ctx.lineTo(tx + 7, ty - 3);
+  ctx.moveTo(tx - baseW / 2, ty);
+  ctx.lineTo(tx + baseW / 2, ty);
+  ctx.lineTo(tx + 28, ty + baseH);
+  ctx.lineTo(tx - 28, ty + baseH);
   ctx.closePath();
-  ctx.fillStyle = active ? '#FF9933' : '#445577';
+  const baseGrad = ctx.createLinearGradient(tx - baseW / 2, 0, tx + baseW / 2, 0);
+  baseGrad.addColorStop(0,   active ? '#cc4400' : '#1c2d44');
+  baseGrad.addColorStop(0.4, active ? '#ff7722' : '#3a5070');
+  baseGrad.addColorStop(1,   active ? '#cc4400' : '#1c2d44');
+  ctx.fillStyle = baseGrad;
   ctx.fill();
+
+  // Barrel body — chunky rectangle pointing downward
+  const barrelW = 44, barrelH = 38;
+  const bx = tx - barrelW / 2, by = ty + baseH;
+  const barrelGrad = ctx.createLinearGradient(bx, 0, bx + barrelW, 0);
+  barrelGrad.addColorStop(0,    active ? '#993300' : '#1a2a3a');
+  barrelGrad.addColorStop(0.25, active ? '#ee5500' : '#2e4560');
+  barrelGrad.addColorStop(0.5,  active ? '#ff8833' : '#4a6888');
+  barrelGrad.addColorStop(0.75, active ? '#ee5500' : '#2e4560');
+  barrelGrad.addColorStop(1,    active ? '#993300' : '#1a2a3a');
+  ctx.fillStyle = barrelGrad;
+  ctx.fillRect(bx, by, barrelW, barrelH);
+
+  // Barrel bands (decorative rings)
+  ctx.strokeStyle = active ? '#ffaa44' : '#5a7898';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(bx + 3, by + 6,  barrelW - 6, 5);
+  ctx.strokeRect(bx + 3, by + 20, barrelW - 6, 5);
+
+  // Muzzle — wider ring at bottom of barrel
+  const muzzleW = 52, muzzleH = 10;
+  const mx = tx - muzzleW / 2, my = by + barrelH;
+  const muzzleGrad = ctx.createLinearGradient(mx, 0, mx + muzzleW, 0);
+  muzzleGrad.addColorStop(0,    active ? '#882200' : '#151f2e');
+  muzzleGrad.addColorStop(0.3,  active ? '#dd4400' : '#263848');
+  muzzleGrad.addColorStop(0.5,  active ? '#ff6600' : '#3a5468');
+  muzzleGrad.addColorStop(0.7,  active ? '#dd4400' : '#263848');
+  muzzleGrad.addColorStop(1,    active ? '#882200' : '#151f2e');
+  ctx.fillStyle = muzzleGrad;
+  ctx.beginPath();
+  ctx.roundRect(mx, my, muzzleW, muzzleH, 4);
+  ctx.fill();
+
+  // Muzzle opening — dark hole
+  ctx.fillStyle = active ? '#1a0800' : '#080d14';
+  ctx.beginPath();
+  ctx.ellipse(tx, my + muzzleH, 14, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Highlight sheen on barrel
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(bx + barrelW * 0.3, by + 2, barrelW * 0.15, barrelH - 4);
+  ctx.globalAlpha = 1;
+
   ctx.restore();
 }
 
@@ -1468,33 +1521,106 @@ function drawRocket() {
   const angle = Math.atan2(vy, vx);
 
   ctx.save();
-  // Trail
+
+  // Trail — wider, more prominent
   for (let i = 0; i < trail.length; i++) {
-    const a = ((i + 1) / trail.length) * 0.5 * opacity;
-    const r = 3 * (i + 1) / trail.length;
+    const t = (i + 1) / trail.length;
+    const a = t * 0.6 * opacity;
+    const r = 6 * t;
     ctx.globalAlpha = a;
     ctx.beginPath();
     ctx.arc(trail[i].x, trail[i].y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#FF8820';
+    // Gradient from orange to yellow along trail
+    ctx.fillStyle = i < trail.length * 0.5 ? '#FF4400' : '#FFCC00';
     ctx.fill();
   }
+
   ctx.globalAlpha = opacity;
   ctx.translate(x, y);
   ctx.rotate(angle);
-  // Rocket body — triangle pointing right (direction of travel)
-  ctx.beginPath();
-  ctx.moveTo(13, 0);    // nose
-  ctx.lineTo(-7, -6);   // top-left fin
-  ctx.lineTo(-4, 0);    // tail center
-  ctx.lineTo(-7, 6);    // bottom-left fin
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(-7, 0, 13, 0);
-  grad.addColorStop(0, '#FF4400');
-  grad.addColorStop(1, '#FFDD00');
-  ctx.fillStyle = grad;
+
   ctx.shadowColor = '#FF8820';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur  = 16;
+
+  // === FINS (drawn first, behind body) ===
+  // Top fin
+  ctx.beginPath();
+  ctx.moveTo(-10, -6);   // fin root top
+  ctx.lineTo(-22, -18);  // fin tip
+  ctx.lineTo(-18, -6);   // fin root bottom
+  ctx.closePath();
+  ctx.fillStyle = '#CC2200';
   ctx.fill();
+  // Bottom fin
+  ctx.beginPath();
+  ctx.moveTo(-10, 6);
+  ctx.lineTo(-22, 18);
+  ctx.lineTo(-18, 6);
+  ctx.closePath();
+  ctx.fillStyle = '#CC2200';
+  ctx.fill();
+
+  // === FLAME exhaust (at tail) ===
+  const flameFlicker = 0.8 + Math.random() * 0.4;
+  const flameGrad = ctx.createRadialGradient(-18, 0, 0, -18, 0, 12 * flameFlicker);
+  flameGrad.addColorStop(0,   'rgba(255,255,180,0.95)');
+  flameGrad.addColorStop(0.3, 'rgba(255,180,0,0.8)');
+  flameGrad.addColorStop(0.7, 'rgba(255,80,0,0.5)');
+  flameGrad.addColorStop(1,   'rgba(255,40,0,0)');
+  ctx.beginPath();
+  ctx.ellipse(-18 - 6 * flameFlicker, 0, 12 * flameFlicker, 5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = flameGrad;
+  ctx.fill();
+
+  // === BODY — chunky rounded rectangle ===
+  const bodyGrad = ctx.createLinearGradient(-12, -10, -12, 10);
+  bodyGrad.addColorStop(0,   '#FF9944');
+  bodyGrad.addColorStop(0.3, '#FF6600');
+  bodyGrad.addColorStop(0.7, '#DD4400');
+  bodyGrad.addColorStop(1,   '#BB2200');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.roundRect(-14, -9, 24, 18, 5);
+  ctx.fill();
+
+  // Body highlight sheen
+  ctx.globalAlpha = opacity * 0.35;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(-12, -8, 20, 6, 3);
+  ctx.fill();
+  ctx.globalAlpha = opacity;
+
+  // === NOSE CONE — curved pointy tip ===
+  ctx.beginPath();
+  ctx.moveTo(10, -9);    // top of body front
+  ctx.bezierCurveTo(14, -9, 24, -4, 26, 0);  // curve to tip
+  ctx.bezierCurveTo(24, 4, 14, 9, 10, 9);    // curve back
+  ctx.closePath();
+  const noseGrad = ctx.createLinearGradient(10, 0, 26, 0);
+  noseGrad.addColorStop(0, '#FF3300');
+  noseGrad.addColorStop(1, '#CC0000');
+  ctx.fillStyle = noseGrad;
+  ctx.fill();
+
+  // Nose highlight
+  ctx.globalAlpha = opacity * 0.3;
+  ctx.fillStyle = '#ff9966';
+  ctx.beginPath();
+  ctx.moveTo(11, -7);
+  ctx.bezierCurveTo(14, -7, 20, -3, 22, -1);
+  ctx.bezierCurveTo(20, -5, 14, -8, 11, -7);
+  ctx.fill();
+  ctx.globalAlpha = opacity;
+
+  // Rivet detail line between nose and body
+  ctx.strokeStyle = '#882200';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(10, -9);
+  ctx.lineTo(10, 9);
+  ctx.stroke();
+
   ctx.restore();
 }
 
@@ -1514,18 +1640,18 @@ function drawRocketParticles() {
 }
 
 function spawnAbsorptionBurst(x, y, color) {
-  for (let i = 0; i < 9; i++) {
-    const angle = (i / 9) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-    const speed = 70 + Math.random() * 130;
-    const life  = 0.25 + Math.random() * 0.15;
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+    const speed = 80 + Math.random() * 160;
+    const life  = 0.3 + Math.random() * 0.2;
     rocketParticles.push({
       x, y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 30,
+      vy: Math.sin(angle) * speed - 40,
       color,
       life,
       maxLife: life,
-      size: 3 + Math.random() * 3,
+      size: 6 + Math.random() * 5,
     });
   }
 }
@@ -1638,7 +1764,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v2.0', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v2.1', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
