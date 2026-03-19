@@ -278,6 +278,22 @@ html, body {
 }
 .size-btn:active { opacity: 0.75; }
 
+#btn-rocket {
+  position: relative;
+  overflow: hidden;
+}
+.rocket-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #ff6600, #ffcc00);
+  width: 0;
+  border-radius: 0 0 9px 9px;
+  transition: none;
+  box-shadow: 0 0 6px #ff8820;
+}
+
 .line-color-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -351,6 +367,9 @@ html, body {
       <button class="tool-btn"        id="btn-curve"  onclick="setTool('curve')">~ Curve</button>
       <button class="tool-btn"        id="btn-peg"    onclick="setTool('peg')">&#9679; Peg</button>
       <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">X Erase</button>
+
+      <div class="palette-divider"></div>
+      <button class="tool-btn" id="btn-rocket" onclick="setTool('rocket')"><span id="rocket-label">🚀 Rocket</span><div class="rocket-bar" id="rocket-bar"></div></button>
 
       <div class="palette-divider"></div>
       <button id="clear-btn" onclick="clearAll()">Clear All</button>
@@ -532,6 +551,57 @@ class SoundEngine {
     osc.start(t); osc.stop(t + 0.04); this._track(osc);
   }
 
+  // Rocket fire — ascending sweep 200Hz→600Hz over 100ms
+  playRocketFire() {
+    this._ensureContext();
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, t);
+    osc.frequency.exponentialRampToValueAtTime(600, t + 0.10);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.005);
+    gain.gain.setValueAtTime(0.22, t + 0.08);
+    gain.gain.linearRampToValueAtTime(0, t + 0.14);
+    osc.start(t); osc.stop(t + 0.15); this._track(osc);
+  }
+
+  // Ball absorption — short pop, pitch based on ball color
+  playRocketAbsorb(color) {
+    if (!this._canPlay('peg')) return; // reuse peg cooldown bucket
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const freqMap = { '#FFCC00': 900, '#FF3333': 1200, '#3366FF': 600, '#22BB22': 750 };
+    const freq = freqMap[color] || 800;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t + 0.06);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.30, t + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.start(t); osc.stop(t + 0.08); this._track(osc);
+  }
+
+  // Cooldown ready — subtle ascending ding
+  playRocketReady() {
+    if (this.muted) return;
+    this._ensureContext();
+    if (!this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, t);
+    osc.frequency.linearRampToValueAtTime(880, t + 0.06);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.start(t); osc.stop(t + 0.28); this._track(osc);
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     return this.muted;
@@ -567,6 +637,13 @@ const SNAP_RADIUS    = 42;    // dot-snapping radius
 const REST_SPEED     = 40;    // px/s threshold — higher = faster rest detection
 const REST_TIME      = 0.6;   // seconds at low speed before atRest
 const BALL_COUNTS    = [1, 5, 10, 25, 50];
+
+// Rocket
+const ROCKET_SPEED         = 175;    // px/s
+const ROCKET_COOLDOWN      = 10000;  // ms
+const ROCKET_LOCK_DURATION = 30000;  // ms after first drop
+const ROCKET_RADIUS        = 8;      // px collision radius
+const ROCKET_FADE_TIME     = 0.3;    // seconds to fade on exit
 
 // Bumper physics
 const BUMPER_FACTOR_WALL  = 1.35;  // velocity boost multiplier on wall hit
@@ -613,6 +690,13 @@ let editingCurve = null;   // curve whose handle is being dragged
 let lastTimestamp = 0;
 let physicsAccum  = 0;
 let nextBallId    = 0;
+
+// Rocket state
+let rocket              = null;    // {x,y,vx,vy,trail[],opacity,fading,fadeTimer}
+let rocketParticles     = [];      // absorption burst particles
+let rocketCooldownStart = -Infinity; // performance.now() when last fired
+let firstDropTime       = null;    // performance.now() when first drop happened
+let rocketReadySoundPlayed = true; // prevents double ding
 
 // ============================================================
 // GRID
@@ -689,6 +773,11 @@ function getPos(e) {
 // INPUT HANDLING
 // ============================================================
 function onStart(x, y) {
+  if (currentTool === 'rocket') {
+    tryFireRocket(x, y);
+    return;
+  }
+
   if (currentTool === 'peg') {
     const dot = snapToDot(x, y);
     if (dot && !pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4)) {
@@ -1076,6 +1165,50 @@ function updatePhysics(dt) {
   // Wall/curve flash decay
   for (const w of walls)  { if (w.flashTimer > 0) w.flashTimer -= dt; }
   for (const c of curves) { if (c.flashTimer > 0) c.flashTimer -= dt; }
+
+  // ---- ROCKET PHYSICS ----
+  if (rocket) {
+    // Trail
+    rocket.trail.push({ x: rocket.x, y: rocket.y });
+    if (rocket.trail.length > 4) rocket.trail.shift();
+
+    if (rocket.fading) {
+      rocket.fadeTimer += dt;
+      rocket.opacity = Math.max(0, 1.0 - rocket.fadeTimer / ROCKET_FADE_TIME);
+      if (rocket.opacity <= 0) rocket = null;
+    } else {
+      // Move — no gravity
+      rocket.x += rocket.vx * dt;
+      rocket.y += rocket.vy * dt;
+
+      // Ball collision — absorb on contact
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i];
+        if (b.gcFading) continue;
+        if (Math.hypot(rocket.x - b.x, rocket.y - b.y) < ROCKET_RADIUS + b.props.radius) {
+          spawnAbsorptionBurst(b.x, b.y, b.props.color);
+          soundEngine.playRocketAbsorb(b.props.color);
+          balls.splice(i, 1);
+        }
+      }
+
+      // Off-screen → begin fade
+      const W = canvas.width, H = canvas.height;
+      if (rocket.x < -50 || rocket.x > W + 50 || rocket.y < -50 || rocket.y > H + 50) {
+        rocket.fading = true;
+      }
+    }
+  }
+
+  // Rocket particles
+  for (let i = rocketParticles.length - 1; i >= 0; i--) {
+    const p = rocketParticles[i];
+    p.x  += p.vx * dt;
+    p.y  += p.vy * dt;
+    p.vy += GRAVITY * 0.25 * dt;
+    p.life -= dt;
+    if (p.life <= 0) rocketParticles.splice(i, 1);
+  }
 }
 
 function spawnBalls() {
@@ -1308,6 +1441,170 @@ function drawGhost() {
   }
 }
 
+function drawTurret() {
+  const tx = canvas.width / 2;
+  const ty = 18;
+  const active = currentTool === 'rocket';
+  ctx.save();
+  ctx.shadowColor = active ? '#ff6600' : '#334466';
+  ctx.shadowBlur  = active ? 18 : 4;
+  // Base bar
+  ctx.fillStyle = active ? '#FF6600' : '#2a3a55';
+  ctx.fillRect(tx - 14, ty - 9, 28, 7);
+  // Barrel — triangle pointing down toward canvas
+  ctx.beginPath();
+  ctx.moveTo(tx, ty + 14);
+  ctx.lineTo(tx - 7, ty - 3);
+  ctx.lineTo(tx + 7, ty - 3);
+  ctx.closePath();
+  ctx.fillStyle = active ? '#FF9933' : '#445577';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRocket() {
+  if (!rocket) return;
+  const { x, y, vx, vy, trail, opacity } = rocket;
+  const angle = Math.atan2(vy, vx);
+
+  ctx.save();
+  // Trail
+  for (let i = 0; i < trail.length; i++) {
+    const a = ((i + 1) / trail.length) * 0.5 * opacity;
+    const r = 3 * (i + 1) / trail.length;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(trail[i].x, trail[i].y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#FF8820';
+    ctx.fill();
+  }
+  ctx.globalAlpha = opacity;
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  // Rocket body — triangle pointing right (direction of travel)
+  ctx.beginPath();
+  ctx.moveTo(13, 0);    // nose
+  ctx.lineTo(-7, -6);   // top-left fin
+  ctx.lineTo(-4, 0);    // tail center
+  ctx.lineTo(-7, 6);    // bottom-left fin
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(-7, 0, 13, 0);
+  grad.addColorStop(0, '#FF4400');
+  grad.addColorStop(1, '#FFDD00');
+  ctx.fillStyle = grad;
+  ctx.shadowColor = '#FF8820';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRocketParticles() {
+  for (const p of rocketParticles) {
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function spawnAbsorptionBurst(x, y, color) {
+  for (let i = 0; i < 9; i++) {
+    const angle = (i / 9) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+    const speed = 70 + Math.random() * 130;
+    const life  = 0.25 + Math.random() * 0.15;
+    rocketParticles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 30,
+      color,
+      life,
+      maxLife: life,
+      size: 3 + Math.random() * 3,
+    });
+  }
+}
+
+function tryFireRocket(tx, ty) {
+  const now = performance.now();
+  if (!firstDropTime) return;                               // no drop yet
+  if (now - firstDropTime < ROCKET_LOCK_DURATION) return;  // still locked
+  if (now - rocketCooldownStart < ROCKET_COOLDOWN) return; // on cooldown
+  if (rocket) return;                                       // already active
+
+  const sx = canvas.width / 2;
+  const sy = 18;
+  const dx = tx - sx, dy = ty - sy;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return;
+
+  rocket = {
+    x: sx, y: sy,
+    vx: (dx / len) * ROCKET_SPEED,
+    vy: (dy / len) * ROCKET_SPEED,
+    trail: [],
+    opacity: 1.0,
+    fading: false,
+    fadeTimer: 0,
+  };
+  rocketCooldownStart = now;
+  rocketReadySoundPlayed = false;
+  soundEngine.playRocketFire();
+}
+
+function updateRocketButton() {
+  const now = performance.now();
+  const btn   = document.getElementById('btn-rocket');
+  const label = document.getElementById('rocket-label');
+  const bar   = document.getElementById('rocket-bar');
+
+  if (!firstDropTime) {
+    // Pre-first-drop: show locked with no countdown yet
+    label.textContent = '🚀 Rocket';
+    btn.style.opacity = '0.35';
+    btn.style.cursor  = 'not-allowed';
+    bar.style.width   = '0';
+    return;
+  }
+
+  const lockRemaining = Math.max(0, ROCKET_LOCK_DURATION - (now - firstDropTime));
+  const coolRemaining = Math.max(0, ROCKET_COOLDOWN      - (now - rocketCooldownStart));
+
+  if (lockRemaining > 0) {
+    const secs = Math.ceil(lockRemaining / 1000);
+    label.textContent = `🔒 ${secs}s`;
+    btn.style.opacity = '0.4';
+    btn.style.cursor  = 'not-allowed';
+    bar.style.width   = '0';
+  } else if (coolRemaining > 0) {
+    const pct = 1 - coolRemaining / ROCKET_COOLDOWN;
+    label.textContent = `🚀 ${Math.ceil(coolRemaining / 1000)}s`;
+    btn.style.opacity = '0.6';
+    btn.style.cursor  = 'not-allowed';
+    bar.style.width   = `${pct * 100}%`;
+    // Ding when ready
+    if (!rocketReadySoundPlayed && coolRemaining < FIXED_DT * 1000 * 2) {
+      rocketReadySoundPlayed = true;
+      soundEngine.playRocketReady();
+    }
+  } else {
+    // Ready
+    if (!rocketReadySoundPlayed) {
+      rocketReadySoundPlayed = true;
+      soundEngine.playRocketReady();
+    }
+    label.textContent = '🚀 Rocket';
+    btn.style.opacity = rocket ? '0.55' : '1.0';
+    btn.style.cursor  = rocket ? 'not-allowed' : 'pointer';
+    bar.style.width   = '100%';
+  }
+}
+
 function render(ts) {
   requestAnimationFrame(render);
 
@@ -1329,7 +1626,11 @@ function render(ts) {
   drawCurves();
   drawPegs();
   drawBalls();
+  drawRocketParticles();
+  drawRocket();
+  drawTurret();
   drawGhost();
+  updateRocketButton();
 
   // Version watermark
   ctx.save();
@@ -1337,7 +1638,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v1.9', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v2.0', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -1394,6 +1695,7 @@ function changeBallCount(dir) {
 
 function dropBalls() {
   if (balls.length >= MAX_BALLS) return;
+  if (!firstDropTime) firstDropTime = performance.now();
   soundEngine.playDrop();
   spawnBalls();
   const btn = document.getElementById('drop-btn');
@@ -1413,6 +1715,11 @@ function clearAll() {
   if (confirm('Clear everything and start over?')) {
     walls = []; curves = []; pegs = []; balls = [];
     isDrawing = false; drawStart = null; ghostPos = null; editingCurve = null;
+    // Reset rocket — lock restarts on next drop
+    rocket = null; rocketParticles = [];
+    rocketCooldownStart = -Infinity;
+    firstDropTime = null;
+    rocketReadySoundPlayed = true;
   }
 }
 
