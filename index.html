@@ -123,7 +123,6 @@ html, body {
 }
 
 #drop-btn {
-  margin-left: auto;
   height: 62px;
   min-width: 110px;
   padding: 0 24px;
@@ -327,6 +326,53 @@ html, body {
   padding: 2px 6px;
   border-radius: 10px;
 }
+
+/* ===== LCD SCORE DISPLAY ===== */
+#score-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+#score-lcd {
+  background: #050a05;
+  border: 2px solid #1a2a1a;
+  border-radius: 5px;
+  padding: 5px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 30px;
+  font-weight: 900;
+  color: #00FF88;
+  letter-spacing: 5px;
+  text-shadow: 0 0 8px #00FF88, 0 0 22px #00CC66;
+  box-shadow: inset 0 0 14px rgba(0,0,0,0.9), 0 0 10px rgba(0,200,100,0.15),
+              inset 0 1px 0 rgba(0,255,120,0.08);
+  min-width: 120px;
+  text-align: center;
+  display: inline-block;
+}
+
+.score-label {
+  color: #4a7a5a;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+@keyframes score-plink {
+  0%   { transform: scale(1.0);    filter: brightness(1.0); }
+  25%  { transform: scale(1.15);   filter: brightness(2.2); }
+  100% { transform: scale(1.0);    filter: brightness(1.0); }
+}
+
+#score-lcd.plink {
+  animation: score-plink 160ms ease-out;
+}
 </style>
 </head>
 <body>
@@ -349,6 +395,11 @@ html, body {
       <button class="count-btn" onclick="changeBallCount(-1)">−</button>
       <div id="count-display">5</div>
       <button class="count-btn" onclick="changeBallCount(1)">+</button>
+    </div>
+
+    <div id="score-wrap">
+      <div id="score-lcd">00000</div>
+      <div class="score-label">Score</div>
     </div>
 
     <button id="mute-btn" onclick="toggleSound()" title="Toggle sound">🔊</button>
@@ -602,6 +653,33 @@ class SoundEngine {
     osc.start(t); osc.stop(t + 0.28); this._track(osc);
   }
 
+  // Score up — ascending two-tone cha-ching (400Hz then 600Hz, 30ms each)
+  playScoreUp() {
+    if (this.muted || !this.audioCtx || this.audioCtx.state === 'suspended') return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    // First tone: 400Hz
+    const osc1 = ctx.createOscillator(), gain1 = ctx.createGain();
+    osc1.connect(gain1); gain1.connect(ctx.destination);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(400, t);
+    gain1.gain.setValueAtTime(0.001, t);
+    gain1.gain.linearRampToValueAtTime(0.18, t + 0.003);
+    gain1.gain.setValueAtTime(0.18, t + 0.025);
+    gain1.gain.linearRampToValueAtTime(0, t + 0.04);
+    osc1.start(t); osc1.stop(t + 0.05); this._track(osc1);
+    // Second tone: 600Hz (delayed 30ms)
+    const osc2 = ctx.createOscillator(), gain2 = ctx.createGain();
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(600, t + 0.03);
+    gain2.gain.setValueAtTime(0, t);
+    gain2.gain.setValueAtTime(0.001, t + 0.03);
+    gain2.gain.linearRampToValueAtTime(0.22, t + 0.033);
+    gain2.gain.setValueAtTime(0.22, t + 0.055);
+    gain2.gain.linearRampToValueAtTime(0, t + 0.07);
+    osc2.start(t + 0.03); osc2.stop(t + 0.08); this._track(osc2);
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     return this.muted;
@@ -666,6 +744,8 @@ let walls  = [];   // {ax,ay,bx,by}
 let curves = [];   // {ax,ay,bx,by,cx,cy}  (quadratic bezier control pt)
 let pegs   = [];   // {x,y,pulseTimer}
 let balls  = [];   // {x,y,vx,vy,props,trail[],atRest,restTimer,fadeTimer,opacity}
+
+let score = 0;
 
 let currentTool      = 'wall';
 let currentGridSize  = 'medium';
@@ -1189,6 +1269,7 @@ function updatePhysics(dt) {
           spawnAbsorptionBurst(b.x, b.y, b.props.color);
           soundEngine.playRocketAbsorb(b.props.color);
           balls.splice(i, 1);
+          addScore(10);
         }
       }
 
@@ -1800,7 +1881,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v2.1', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v2.2', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -1823,6 +1904,17 @@ function darken(hex, amt) {
 // ============================================================
 // UI CONTROLS
 // ============================================================
+function addScore(pts) {
+  score += pts;
+  const lcd = document.getElementById('score-lcd');
+  lcd.textContent = String(score).padStart(5, '0');
+  // Plink animation — remove+reflow+readd to restart
+  lcd.classList.remove('plink');
+  void lcd.offsetWidth;
+  lcd.classList.add('plink');
+  soundEngine.playScoreUp();
+}
+
 function setTool(tool) {
   currentTool = tool;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -1882,6 +1974,9 @@ function clearAll() {
     rocketCooldownStart = -Infinity;
     firstDropTime = null;
     rocketReadySoundPlayed = true;
+    // Reset score
+    score = 0;
+    document.getElementById('score-lcd').textContent = '00000';
   }
 }
 
