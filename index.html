@@ -277,20 +277,84 @@ html, body {
 }
 .size-btn:active { opacity: 0.75; }
 
-#btn-rocket {
-  position: relative;
-  overflow: hidden;
+/* ===== MAGAZINE DISPLAY ===== */
+#magazine-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
-.rocket-bar {
+
+#magazine-slots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.mag-slot {
+  position: relative;
+  width: 28px;
+  height: 44px;
+  border-radius: 6px;
+  background: #0d1a2a;
+  border: 2px solid #1e3050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.mag-slot .slot-icon {
+  position: relative;
+  z-index: 2;
+  opacity: 0.18;
+  filter: grayscale(1);
+  transition: opacity 0.2s, filter 0.2s;
+  line-height: 1;
+}
+
+.mag-slot.charged {
+  border-color: #ff6600;
+  box-shadow: 0 0 8px rgba(255,100,0,0.5);
+}
+
+.mag-slot.charged .slot-icon {
+  opacity: 1.0;
+  filter: none;
+  text-shadow: 0 0 8px #ff8800;
+}
+
+.mag-slot .charge-fill {
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 5px;
-  background: linear-gradient(90deg, #ff6600, #ffcc00);
-  width: 0;
-  border-radius: 0 0 9px 9px;
-  transition: none;
-  box-shadow: 0 0 6px #ff8820;
+  width: 100%;
+  height: 0%;
+  background: linear-gradient(0deg, rgba(255,120,0,0.6), rgba(255,200,0,0.2));
+  z-index: 1;
+  transition: height 0.1s linear;
+}
+
+.mag-slot.charging {
+  border-color: #ff8800;
+  animation: mag-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mag-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255,120,0,0.3); }
+  50%       { box-shadow: 0 0 12px rgba(255,180,0,0.7); }
+}
+
+@keyframes mag-flash {
+  0%, 100% { background: #0d1a2a; }
+  25%, 75% { background: rgba(255,60,0,0.25); }
+}
+
+.mag-slot.empty-flash {
+  animation: mag-flash 0.4s ease;
 }
 
 .line-color-grid {
@@ -402,6 +466,17 @@ html, body {
       <div class="score-label">Score</div>
     </div>
 
+    <div class="divider-v"></div>
+
+    <div id="magazine-wrap">
+      <div id="magazine-slots">
+        <div class="mag-slot" id="mag-0"><div class="charge-fill" id="mag-fill-0"></div><span class="slot-icon">🚀</span></div>
+        <div class="mag-slot" id="mag-1"><div class="charge-fill" id="mag-fill-1"></div><span class="slot-icon">🚀</span></div>
+        <div class="mag-slot" id="mag-2"><div class="charge-fill" id="mag-fill-2"></div><span class="slot-icon">🚀</span></div>
+      </div>
+      <div class="score-label">Rockets</div>
+    </div>
+
     <button id="mute-btn" onclick="toggleSound()" title="Toggle sound">🔊</button>
     <button id="drop-btn" onclick="dropBalls()">DROP!</button>
   </div>
@@ -420,7 +495,7 @@ html, body {
       <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">X Erase</button>
 
       <div class="palette-divider"></div>
-      <button class="tool-btn" id="btn-rocket" onclick="setTool('rocket')"><span id="rocket-label">🚀 Rocket</span><div class="rocket-bar" id="rocket-bar"></div></button>
+      <button class="tool-btn" id="btn-rocket" onclick="setTool('rocket')"><span id="rocket-label">🚀 Rocket</span></button>
 
       <div class="palette-divider"></div>
       <button id="clear-btn" onclick="clearAll()">Clear All</button>
@@ -653,6 +728,51 @@ class SoundEngine {
     osc.start(t); osc.stop(t + 0.28); this._track(osc);
   }
 
+  // Magazine loaded — click-lock: two short percussive clicks
+  playMagazineLoad() {
+    if (this.muted) return;
+    this._ensureContext();
+    if (!this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    // First click
+    const osc1 = ctx.createOscillator(), g1 = ctx.createGain();
+    osc1.connect(g1); g1.connect(ctx.destination);
+    osc1.type = 'square';
+    osc1.frequency.setValueAtTime(300, t);
+    osc1.frequency.linearRampToValueAtTime(180, t + 0.015);
+    g1.gain.setValueAtTime(0.001, t);
+    g1.gain.linearRampToValueAtTime(0.15, t + 0.003);
+    g1.gain.linearRampToValueAtTime(0, t + 0.02);
+    osc1.start(t); osc1.stop(t + 0.025); this._track(osc1);
+    // Second click (slightly higher pitch, 40ms later)
+    const osc2 = ctx.createOscillator(), g2 = ctx.createGain();
+    osc2.connect(g2); g2.connect(ctx.destination);
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(480, t + 0.04);
+    osc2.frequency.linearRampToValueAtTime(260, t + 0.06);
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.setValueAtTime(0.001, t + 0.04);
+    g2.gain.linearRampToValueAtTime(0.20, t + 0.043);
+    g2.gain.linearRampToValueAtTime(0, t + 0.07);
+    osc2.start(t + 0.04); osc2.stop(t + 0.08); this._track(osc2);
+  }
+
+  // Magazine empty — dull thud click
+  playMagazineEmpty() {
+    this._ensureContext();
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.linearRampToValueAtTime(55, t + 0.04);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.004);
+    gain.gain.linearRampToValueAtTime(0, t + 0.06);
+    osc.start(t); osc.stop(t + 0.07); this._track(osc);
+  }
+
   // Score up — ascending two-tone cha-ching (400Hz then 600Hz, 30ms each)
   playScoreUp() {
     if (this.muted || !this.audioCtx || this.audioCtx.state === 'suspended') return;
@@ -716,12 +836,13 @@ const REST_SPEED     = 40;    // px/s threshold — higher = faster rest detecti
 const REST_TIME      = 0.6;   // seconds at low speed before atRest
 const BALL_COUNTS    = [1, 5, 10, 25, 50];
 
-// Rocket
+// Rocket / Magazine
 const ROCKET_SPEED         = 175;    // px/s
-const ROCKET_COOLDOWN      = 10000;  // ms
-const ROCKET_LOCK_DURATION = 30000;  // ms after first drop
+const ROCKET_LOCK_DURATION = 30000;  // ms after first drop before first charge
 const ROCKET_RADIUS        = 14;     // px collision radius
 const ROCKET_FADE_TIME     = 0.3;    // seconds to fade on exit
+const MAGAZINE_CAPACITY    = 3;      // max rockets
+const MAGAZINE_CHARGE_TIME = 10000;  // ms per subsequent charge
 
 // Bumper physics
 const BUMPER_FACTOR_WALL  = 1.35;  // velocity boost multiplier on wall hit
@@ -771,12 +892,13 @@ let lastTimestamp = 0;
 let physicsAccum  = 0;
 let nextBallId    = 0;
 
-// Rocket state
-let rocket              = null;    // {x,y,vx,vy,trail[],opacity,fading,fadeTimer}
-let rocketParticles     = [];      // absorption burst particles
-let rocketCooldownStart = -Infinity; // performance.now() when last fired
-let firstDropTime       = null;    // performance.now() when first drop happened
-let rocketReadySoundPlayed = true; // prevents double ding
+// Rocket / Magazine state
+let rockets         = [];     // array of {x,y,vx,vy,trail[],opacity,fading,fadeTimer}
+let rocketParticles = [];     // absorption burst particles
+let firstDropTime   = null;   // performance.now() when first drop happened
+let magazineCount   = 0;      // rockets ready to fire (0–3)
+let chargeStart     = null;   // performance.now() when current charge cycle began (null = no drop yet or mag full)
+let isFirstCharge   = true;   // true = 30s lock, false = 10s recharge
 
 // ============================================================
 // GRID
@@ -1247,25 +1369,26 @@ function updatePhysics(dt) {
   for (const c of curves) { if (c.flashTimer > 0) c.flashTimer -= dt; }
 
   // ---- ROCKET PHYSICS ----
-  if (rocket) {
+  for (let ri = rockets.length - 1; ri >= 0; ri--) {
+    const r = rockets[ri];
     // Trail
-    rocket.trail.push({ x: rocket.x, y: rocket.y });
-    if (rocket.trail.length > 8) rocket.trail.shift();
+    r.trail.push({ x: r.x, y: r.y });
+    if (r.trail.length > 8) r.trail.shift();
 
-    if (rocket.fading) {
-      rocket.fadeTimer += dt;
-      rocket.opacity = Math.max(0, 1.0 - rocket.fadeTimer / ROCKET_FADE_TIME);
-      if (rocket.opacity <= 0) rocket = null;
+    if (r.fading) {
+      r.fadeTimer += dt;
+      r.opacity = Math.max(0, 1.0 - r.fadeTimer / ROCKET_FADE_TIME);
+      if (r.opacity <= 0) rockets.splice(ri, 1);
     } else {
       // Move — no gravity
-      rocket.x += rocket.vx * dt;
-      rocket.y += rocket.vy * dt;
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
 
       // Ball collision — absorb on contact
       for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i];
         if (b.gcFading) continue;
-        if (Math.hypot(rocket.x - b.x, rocket.y - b.y) < ROCKET_RADIUS + b.props.radius) {
+        if (Math.hypot(r.x - b.x, r.y - b.y) < ROCKET_RADIUS + b.props.radius) {
           spawnAbsorptionBurst(b.x, b.y, b.props.color);
           soundEngine.playRocketAbsorb(b.props.color);
           balls.splice(i, 1);
@@ -1275,8 +1398,8 @@ function updatePhysics(dt) {
 
       // Off-screen → begin fade
       const W = canvas.width, H = canvas.height;
-      if (rocket.x < -50 || rocket.x > W + 50 || rocket.y < -50 || rocket.y > H + 50) {
-        rocket.fading = true;
+      if (r.x < -50 || r.x > W + 50 || r.y < -50 || r.y > H + 50) {
+        r.fading = true;
       }
     }
   }
@@ -1598,10 +1721,11 @@ function drawTurret() {
 }
 
 function drawRocket() {
-  if (!rocket) return;
+  if (rockets.length === 0) return;
+  const now = performance.now();
+  for (const rocket of rockets) {
   const { x, y, vx, vy, trail, opacity } = rocket;
   const angle = Math.atan2(vy, vx);
-  const now = performance.now();
 
   ctx.save();
 
@@ -1723,6 +1847,7 @@ function drawRocket() {
   ctx.globalAlpha = opacity;
 
   ctx.restore();
+  } // end for (const rocket of rockets)
 }
 
 function drawRocketParticles() {
@@ -1774,11 +1899,12 @@ function spawnAbsorptionBurst(x, y, color) {
 }
 
 function tryFireRocket(tx, ty) {
-  const now = performance.now();
-  if (!firstDropTime) return;                               // no drop yet
-  if (now - firstDropTime < ROCKET_LOCK_DURATION) return;  // still locked
-  if (now - rocketCooldownStart < ROCKET_COOLDOWN) return; // on cooldown
-  if (rocket) return;                                       // already active
+  if (magazineCount <= 0) {
+    // Empty magazine — dull click + flash slots
+    soundEngine.playMagazineEmpty();
+    flashMagazineEmpty();
+    return;
+  }
 
   const sx = canvas.width / 2;
   const sy = 18;
@@ -1786,7 +1912,15 @@ function tryFireRocket(tx, ty) {
   const len = Math.hypot(dx, dy);
   if (len < 1) return;
 
-  rocket = {
+  // Consume one rocket from magazine
+  magazineCount--;
+
+  // If magazine was full (chargeStart paused), resume charging
+  if (chargeStart === null && firstDropTime !== null) {
+    chargeStart = performance.now();
+  }
+
+  rockets.push({
     x: sx, y: sy,
     vx: (dx / len) * ROCKET_SPEED,
     vy: (dy / len) * ROCKET_SPEED,
@@ -1794,57 +1928,70 @@ function tryFireRocket(tx, ty) {
     opacity: 1.0,
     fading: false,
     fadeTimer: 0,
-  };
-  rocketCooldownStart = now;
-  rocketReadySoundPlayed = false;
+  });
   soundEngine.playRocketFire();
 }
 
-function updateRocketButton() {
-  const now = performance.now();
-  const btn   = document.getElementById('btn-rocket');
-  const label = document.getElementById('rocket-label');
-  const bar   = document.getElementById('rocket-bar');
+function flashMagazineEmpty() {
+  for (let i = 0; i < MAGAZINE_CAPACITY; i++) {
+    const slot = document.getElementById('mag-' + i);
+    if (!slot) continue;
+    slot.classList.remove('empty-flash');
+    void slot.offsetWidth; // reflow to restart animation
+    slot.classList.add('empty-flash');
+    setTimeout(() => slot.classList.remove('empty-flash'), 500);
+  }
+}
 
-  if (!firstDropTime) {
-    // Pre-first-drop: show locked with no countdown yet
-    label.textContent = '🚀 Rocket';
-    btn.style.opacity = '0.35';
-    btn.style.cursor  = 'not-allowed';
-    bar.style.width   = '0';
-    return;
+function updateMagazine() {
+  const now = performance.now();
+
+  // ---- Charging logic ----
+  if (firstDropTime && chargeStart !== null && magazineCount < MAGAZINE_CAPACITY) {
+    const chargeTime = isFirstCharge ? ROCKET_LOCK_DURATION : MAGAZINE_CHARGE_TIME;
+    const elapsed = now - chargeStart;
+    if (elapsed >= chargeTime) {
+      // Rocket charged!
+      magazineCount++;
+      isFirstCharge = false;
+      soundEngine.playMagazineLoad();
+      if (magazineCount < MAGAZINE_CAPACITY) {
+        chargeStart = now; // continue charging next slot
+      } else {
+        chargeStart = null; // full — pause until a rocket is fired
+      }
+    }
   }
 
-  const lockRemaining = Math.max(0, ROCKET_LOCK_DURATION - (now - firstDropTime));
-  const coolRemaining = Math.max(0, ROCKET_COOLDOWN      - (now - rocketCooldownStart));
+  // ---- Update rocket button ----
+  const btn   = document.getElementById('btn-rocket');
+  const label = document.getElementById('rocket-label');
+  label.textContent = `🚀 ${magazineCount}/${MAGAZINE_CAPACITY}`;
+  btn.style.opacity = '1.0';
+  btn.style.cursor  = 'pointer';
 
-  if (lockRemaining > 0) {
-    const secs = Math.ceil(lockRemaining / 1000);
-    label.textContent = `🔒 ${secs}s`;
-    btn.style.opacity = '0.4';
-    btn.style.cursor  = 'not-allowed';
-    bar.style.width   = '0';
-  } else if (coolRemaining > 0) {
-    const pct = 1 - coolRemaining / ROCKET_COOLDOWN;
-    label.textContent = `🚀 ${Math.ceil(coolRemaining / 1000)}s`;
-    btn.style.opacity = '0.6';
-    btn.style.cursor  = 'not-allowed';
-    bar.style.width   = `${pct * 100}%`;
-    // Ding when ready
-    if (!rocketReadySoundPlayed && coolRemaining < FIXED_DT * 1000 * 2) {
-      rocketReadySoundPlayed = true;
-      soundEngine.playRocketReady();
+  // ---- Update magazine slot display ----
+  const chargeTime = isFirstCharge ? ROCKET_LOCK_DURATION : MAGAZINE_CHARGE_TIME;
+  const chargePct  = (firstDropTime && chargeStart !== null)
+    ? Math.min(1, (now - chargeStart) / chargeTime)
+    : 0;
+
+  for (let i = 0; i < MAGAZINE_CAPACITY; i++) {
+    const slot = document.getElementById('mag-' + i);
+    const fill = document.getElementById('mag-fill-' + i);
+    if (!slot || !fill) continue;
+
+    const isCharged  = i < magazineCount;
+    const isCharging = !isCharged && i === magazineCount && firstDropTime && chargeStart !== null;
+
+    slot.classList.toggle('charged',  isCharged);
+    slot.classList.toggle('charging', isCharging);
+
+    if (isCharging) {
+      fill.style.height = `${chargePct * 100}%`;
+    } else {
+      fill.style.height = '0%';
     }
-  } else {
-    // Ready
-    if (!rocketReadySoundPlayed) {
-      rocketReadySoundPlayed = true;
-      soundEngine.playRocketReady();
-    }
-    label.textContent = '🚀 Rocket';
-    btn.style.opacity = rocket ? '0.55' : '1.0';
-    btn.style.cursor  = rocket ? 'not-allowed' : 'pointer';
-    bar.style.width   = '100%';
   }
 }
 
@@ -1873,7 +2020,7 @@ function render(ts) {
   drawRocket();
   drawTurret();
   drawGhost();
-  updateRocketButton();
+  updateMagazine();
 
   // Version watermark
   ctx.save();
@@ -1881,7 +2028,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v2.2', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v2.3', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -1949,7 +2096,11 @@ function changeBallCount(dir) {
 
 function dropBalls() {
   if (balls.length >= MAX_BALLS) return;
-  if (!firstDropTime) firstDropTime = performance.now();
+  if (!firstDropTime) {
+    firstDropTime = performance.now();
+    chargeStart = firstDropTime; // begin 30s charge
+    isFirstCharge = true;
+  }
   soundEngine.playDrop();
   spawnBalls();
   const btn = document.getElementById('drop-btn');
@@ -1969,11 +2120,10 @@ function clearAll() {
   if (confirm('Clear everything and start over?')) {
     walls = []; curves = []; pegs = []; balls = [];
     isDrawing = false; drawStart = null; ghostPos = null; editingCurve = null;
-    // Reset rocket — lock restarts on next drop
-    rocket = null; rocketParticles = [];
-    rocketCooldownStart = -Infinity;
+    // Reset magazine — lock restarts on next drop
+    rockets = []; rocketParticles = [];
+    magazineCount = 0; chargeStart = null; isFirstCharge = true;
     firstDropTime = null;
-    rocketReadySoundPlayed = true;
     // Reset score
     score = 0;
     document.getElementById('score-lcd').textContent = '00000';
