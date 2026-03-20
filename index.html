@@ -1017,7 +1017,7 @@ const LASER_HEAT_PER_SHOT      = 15;    // heat added per shot (0–100 scale)
 const LASER_HEAT_MAX           = 100;   // overheat threshold
 const LASER_HEAT_DECAY         = 8;     // heat lost per second (passive cooling)
 const LASER_OVERHEAT_COOLDOWN  = 4;     // seconds of forced cooldown after overheat
-const LASER_FIRE_COOLDOWN      = 1.0;   // minimum seconds between shots
+const LASER_FIRE_COOLDOWN      = 0.1;   // minimum seconds between shots
 const LASER_BEAM_DURATION      = 0.2;   // seconds the beam visual stays visible
 
 // Bumper physics
@@ -2534,7 +2534,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v3.1', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v3.2', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
