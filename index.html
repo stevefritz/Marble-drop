@@ -555,8 +555,8 @@ html, body {
 
     <div id="weapon-wrap">
       <div class="weapon-btns">
-        <button class="weapon-btn active" id="weapon-rocket" onclick="setWeapon('rocket')">🚀 Rocket</button>
-        <button class="weapon-btn" id="weapon-laser" onclick="setWeapon('laser')">⚡ Laser</button>
+        <button class="weapon-btn" id="weapon-rocket" onclick="setTool('rocket')">🚀 Rocket</button>
+        <button class="weapon-btn" id="weapon-laser" onclick="setTool('laser')">⚡ Laser</button>
       </div>
       <div id="heat-wrap">
         <div id="heat-bar-outer"><div id="heat-bar-inner"></div></div>
@@ -1162,11 +1162,11 @@ function getPos(e) {
 // ============================================================
 function onStart(x, y) {
   if (currentTool === 'rocket') {
-    if (currentWeapon === 'laser') {
-      tryFireLaser(x, y);
-    } else {
-      tryFireRocket(x, y);
-    }
+    tryFireRocket(x, y);
+    return;
+  }
+  if (currentTool === 'laser') {
+    tryFireLaser(x, y);
     return;
   }
 
@@ -2041,14 +2041,14 @@ function drawLaserTurretShape(active, overheated) {
 function drawTurret() {
   const tx = canvas.width / 2;
   const ty = 20;
-  const active = currentTool === 'rocket';
+  const active = currentTool === 'rocket' || currentTool === 'laser';
 
   ctx.save();
   ctx.translate(tx, ty);
   // Rotate barrel to face last shot direction (default: straight down = angle PI/2)
   ctx.rotate(turretAngle - Math.PI / 2);
 
-  if (currentWeapon === 'laser') {
+  if (currentTool === 'laser') {
     drawLaserTurretShape(active, laserOverheated);
   } else {
     if (active) {
@@ -2407,17 +2407,8 @@ function spawnSteamParticles(x, y) {
 }
 
 function setWeapon(weapon) {
-  currentWeapon = weapon;
-  document.querySelectorAll('.weapon-btn').forEach(b => {
-    b.classList.remove('active', 'laser-weapon-active');
-  });
-  if (weapon === 'laser') {
-    document.getElementById('weapon-laser').classList.add('active', 'laser-weapon-active');
-    document.getElementById('heat-wrap').style.display = 'flex';
-  } else {
-    document.getElementById('weapon-rocket').classList.add('active');
-    document.getElementById('heat-wrap').style.display = 'none';
-  }
+  // Delegate to unified tool system
+  setTool(weapon === 'laser' ? 'laser' : 'rocket');
 }
 
 function updateMagazine() {
@@ -2443,7 +2434,7 @@ function updateMagazine() {
   // ---- Update rocket button ----
   const btn   = document.getElementById('btn-rocket');
   const label = document.getElementById('rocket-label');
-  if (currentWeapon === 'laser') {
+  if (currentTool === 'laser') {
     label.textContent = laserOverheated ? '⚡ COOLING' : '⚡ Laser';
   } else {
     label.textContent = `🚀 ${magazineCount}/${MAGAZINE_CAPACITY}`;
@@ -2477,7 +2468,7 @@ function updateMagazine() {
 }
 
 function updateHeatUI() {
-  if (currentWeapon !== 'laser') return;
+  if (currentTool !== 'laser') return;
   const heatBar = document.getElementById('heat-bar-inner');
   const heatLabel = document.getElementById('heat-label-text');
   if (!heatBar) return;
@@ -2543,7 +2534,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v3.0', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v3.1', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -2579,8 +2570,27 @@ function addScore(pts) {
 
 function setTool(tool) {
   currentTool = tool;
+
+  // Clear all tool and weapon button highlights
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-' + tool).classList.add('active');
+  document.querySelectorAll('.weapon-btn').forEach(b => b.classList.remove('active', 'laser-weapon-active'));
+
+  if (tool === 'rocket' || tool === 'laser') {
+    // Weapon mode: highlight btn-rocket in palette + matching weapon toggle button
+    document.getElementById('btn-rocket').classList.add('active');
+    if (tool === 'laser') {
+      document.getElementById('weapon-laser').classList.add('active', 'laser-weapon-active');
+      document.getElementById('heat-wrap').style.display = 'flex';
+    } else {
+      document.getElementById('weapon-rocket').classList.add('active');
+      document.getElementById('heat-wrap').style.display = 'none';
+    }
+  } else {
+    // Build tool mode: highlight the corresponding palette button, hide heat gauge
+    document.getElementById('btn-' + tool).classList.add('active');
+    document.getElementById('heat-wrap').style.display = 'none';
+  }
+
   isDrawing = false; drawStart = null; ghostPos = null; editingCurve = null;
 }
 
