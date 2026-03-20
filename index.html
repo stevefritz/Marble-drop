@@ -437,6 +437,80 @@ html, body {
 #score-lcd.plink {
   animation: score-plink 160ms ease-out;
 }
+
+/* ===== WEAPON TOGGLE ===== */
+#weapon-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.weapon-btns {
+  display: flex;
+  gap: 5px;
+}
+
+.weapon-btn {
+  height: 36px;
+  min-width: 72px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: #0f3460;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  outline: none;
+  white-space: nowrap;
+}
+.weapon-btn.active {
+  background: #1a4a7a;
+  border-color: #4aacff;
+  box-shadow: 0 0 10px rgba(74,172,255,0.25);
+}
+.weapon-btn.laser-weapon-active {
+  background: #0a3a3a;
+  border-color: #00ffff;
+  box-shadow: 0 0 10px rgba(0,255,255,0.35);
+}
+.weapon-btn:active { opacity: 0.75; }
+
+/* ===== HEAT GAUGE ===== */
+#heat-wrap {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+#heat-bar-outer {
+  width: 76px;
+  height: 9px;
+  background: #0d1a2a;
+  border-radius: 5px;
+  border: 1px solid #1e3050;
+  overflow: hidden;
+}
+
+#heat-bar-inner {
+  height: 100%;
+  width: 0%;
+  background: #00cc44;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+.heat-label {
+  color: #6a8abf;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
 </style>
 </head>
 <body>
@@ -475,6 +549,19 @@ html, body {
         <div class="mag-slot" id="mag-2"><div class="charge-fill" id="mag-fill-2"></div><span class="slot-icon">🚀</span></div>
       </div>
       <div class="score-label">Rockets</div>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div id="weapon-wrap">
+      <div class="weapon-btns">
+        <button class="weapon-btn active" id="weapon-rocket" onclick="setWeapon('rocket')">🚀 Rocket</button>
+        <button class="weapon-btn" id="weapon-laser" onclick="setWeapon('laser')">⚡ Laser</button>
+      </div>
+      <div id="heat-wrap">
+        <div id="heat-bar-outer"><div id="heat-bar-inner"></div></div>
+        <div class="heat-label" id="heat-label-text">Heat</div>
+      </div>
     </div>
 
     <button id="mute-btn" onclick="toggleSound()" title="Toggle sound">🔊</button>
@@ -773,6 +860,86 @@ class SoundEngine {
     osc.start(t); osc.stop(t + 0.07); this._track(osc);
   }
 
+  // Laser fire — quick electronic zap 2000Hz→500Hz over 60ms
+  playLaserFire() {
+    this._ensureContext();
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    // Waveshaper for slight distortion
+    const ws = ctx.createWaveShaper();
+    const n = 256, curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = (Math.PI + 80) * x / (Math.PI + 80 * Math.abs(x));
+    }
+    ws.curve = curve;
+    osc.connect(ws); ws.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(2000, t);
+    osc.frequency.exponentialRampToValueAtTime(500, t + 0.06);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.005);
+    gain.gain.setValueAtTime(0.22, t + 0.04);
+    gain.gain.linearRampToValueAtTime(0, t + 0.08);
+    osc.start(t); osc.stop(t + 0.09); this._track(osc);
+  }
+
+  // Overheat warning — crackling noise burst on each shot when heat > 75%
+  playOverheatWarning() {
+    this._ensureContext();
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const bufSize = Math.floor(ctx.sampleRate * 0.07);
+    const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass'; bpf.frequency.value = 1400; bpf.Q.value = 2;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.10, t);
+    gain.gain.linearRampToValueAtTime(0, t + 0.07);
+    src.connect(bpf); bpf.connect(gain); gain.connect(ctx.destination);
+    src.start(t); this._track(src);
+  }
+
+  // Overheat triggered — descending power-down sweep 800Hz→100Hz over 300ms
+  playOverheatTriggered() {
+    this._ensureContext();
+    if (this.muted || !this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(100, t + 0.30);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.01);
+    gain.gain.setValueAtTime(0.22, t + 0.25);
+    gain.gain.linearRampToValueAtTime(0, t + 0.32);
+    osc.start(t); osc.stop(t + 0.35); this._track(osc);
+  }
+
+  // Cooldown complete — ascending power-up chime (three tones)
+  playLaserReady() {
+    if (this.muted) return;
+    this._ensureContext();
+    if (!this.audioCtx) return;
+    const ctx = this.audioCtx, t = ctx.currentTime;
+    for (const [freq, delay] of [[440, 0], [660, 0.08], [880, 0.16]]) {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + delay);
+      gain.gain.setValueAtTime(0, t + delay);
+      gain.gain.linearRampToValueAtTime(0.14, t + delay + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.18);
+      osc.start(t + delay); osc.stop(t + delay + 0.20); this._track(osc);
+    }
+  }
+
   // Score up — ascending two-tone cha-ching (400Hz then 600Hz, 30ms each)
   playScoreUp() {
     if (this.muted || !this.audioCtx || this.audioCtx.state === 'suspended') return;
@@ -845,6 +1012,14 @@ const ROCKET_LIFESPAN      = 10;     // seconds before rocket expires
 const MAGAZINE_CAPACITY    = 3;      // max rockets
 const MAGAZINE_CHARGE_TIME = 10000;  // ms per subsequent charge
 
+// Laser constants
+const LASER_HEAT_PER_SHOT      = 15;    // heat added per shot (0–100 scale)
+const LASER_HEAT_MAX           = 100;   // overheat threshold
+const LASER_HEAT_DECAY         = 8;     // heat lost per second (passive cooling)
+const LASER_OVERHEAT_COOLDOWN  = 4;     // seconds of forced cooldown after overheat
+const LASER_FIRE_COOLDOWN      = 1.0;   // minimum seconds between shots
+const LASER_BEAM_DURATION      = 0.2;   // seconds the beam visual stays visible
+
 // Bumper physics
 const BUMPER_FACTOR_WALL  = 1.35;  // velocity boost multiplier on wall hit
 const BUMPER_FACTOR_CURVE = 1.25;  // velocity boost multiplier on curve hit
@@ -900,6 +1075,16 @@ let firstDropTime   = null;   // performance.now() when first drop happened
 let magazineCount   = 0;      // rockets ready to fire (0–3)
 let chargeStart     = null;   // performance.now() when current charge cycle began (null = no drop yet or mag full)
 let isFirstCharge   = true;   // true = 30s lock, false = 10s recharge
+
+// Laser / weapon state
+let currentWeapon       = 'rocket';   // 'rocket' or 'laser'
+let laserHeat           = 0;          // 0–LASER_HEAT_MAX
+let laserOverheated     = false;
+let laserOverheatTimer  = 0;
+let lastLaserFireTime   = -999;       // seconds (performance.now()/1000)
+let laserBeam           = null;       // {x1,y1,x2,y2,alpha,timer} or null
+let laserSteamParticles = [];         // [{x,y,vx,vy,life,maxLife,size}]
+let turretAngle         = Math.PI / 2; // radians, default pointing down
 
 // ============================================================
 // GRID
@@ -977,7 +1162,11 @@ function getPos(e) {
 // ============================================================
 function onStart(x, y) {
   if (currentTool === 'rocket') {
-    tryFireRocket(x, y);
+    if (currentWeapon === 'laser') {
+      tryFireLaser(x, y);
+    } else {
+      tryFireRocket(x, y);
+    }
     return;
   }
 
@@ -1282,6 +1471,12 @@ function updatePhysics(dt) {
         b.vx *= 0.85;  // stronger ground friction — settle fast, no micro-sliding
       }
 
+      // Boundary: top — balls reflect off top edge
+      if (b.y - br < 0) {
+        b.y = br;
+        if (b.vy < 0) b.vy = -b.vy * b.props.restitution;
+      }
+
       // Boundary: left/right canvas edges — bounce
       if (b.x - br < 0) {
         b.x = br;
@@ -1431,6 +1626,44 @@ function updatePhysics(dt) {
     p.vy += GRAVITY * 0.25 * dt;
     p.life -= dt;
     if (p.life <= 0) rocketParticles.splice(i, 1);
+  }
+
+  // ---- LASER PHYSICS ----
+  // Heat decay (passive cooling)
+  if (laserOverheated) {
+    laserOverheatTimer -= dt;
+    if (laserOverheatTimer <= 0) {
+      laserOverheated = false;
+      laserHeat = 0;
+      laserOverheatTimer = 0;
+      soundEngine.playLaserReady();
+      laserSteamParticles = [];
+    }
+  } else if (laserHeat > 0) {
+    laserHeat = Math.max(0, laserHeat - LASER_HEAT_DECAY * dt);
+  }
+
+  // Laser beam fade
+  if (laserBeam) {
+    laserBeam.timer -= dt;
+    laserBeam.alpha = Math.max(0, laserBeam.timer / LASER_BEAM_DURATION);
+    if (laserBeam.timer <= 0) laserBeam = null;
+  }
+
+  // Steam particles
+  for (let i = laserSteamParticles.length - 1; i >= 0; i--) {
+    const p = laserSteamParticles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy -= 40 * dt;   // drift upward
+    p.vx *= 0.97;
+    p.size += 1.5 * dt; // expand as they rise
+    p.life -= dt;
+    if (p.life <= 0) laserSteamParticles.splice(i, 1);
+  }
+  // Continuous steam emission while overheated
+  if (laserOverheated && Math.random() < 0.25) {
+    spawnSteamParticles(canvas.width / 2, 20);
   }
 }
 
@@ -1664,77 +1897,166 @@ function drawGhost() {
   }
 }
 
-function drawTurret() {
-  const tx = canvas.width / 2;
-  const ty = 20;
-  const active = currentTool === 'rocket';
-  ctx.save();
-
-  // Glow when active
-  if (active) {
-    ctx.shadowColor = '#FF6600';
-    ctx.shadowBlur  = 24;
-  }
-
-  // Base platform — chunky rounded rectangle
+function drawRocketTurretShape(active) {
+  // Draw rocket turret in local coords — barrel points in +Y direction (down)
+  // Origin is at the pivot center of the base
   const baseW = 54, baseH = 14;
-  const baseX = tx - baseW / 2, baseY = ty - baseH / 2;
-  const baseGrad = ctx.createLinearGradient(baseX, baseY, baseX, baseY + baseH);
+  const baseGrad = ctx.createLinearGradient(-baseW/2, -baseH/2, -baseW/2, baseH/2);
   baseGrad.addColorStop(0, active ? '#ff8833' : '#4a5a70');
   baseGrad.addColorStop(1, active ? '#cc4400' : '#2a3550');
   ctx.fillStyle = baseGrad;
   ctx.beginPath();
-  ctx.roundRect(baseX, baseY, baseW, baseH, 5);
+  ctx.roundRect(-baseW/2, -baseH/2, baseW, baseH, 5);
   ctx.fill();
 
-  // Base highlight stripe
   ctx.fillStyle = active ? 'rgba(255,220,150,0.3)' : 'rgba(255,255,255,0.1)';
   ctx.beginPath();
-  ctx.roundRect(baseX + 3, baseY + 2, baseW - 6, 4, 2);
+  ctx.roundRect(-baseW/2 + 3, -baseH/2 + 2, baseW - 6, 4, 2);
   ctx.fill();
 
-  // Mounting bolts
   const boltColor = active ? '#ffaa44' : '#667799';
-  for (const bx of [tx - 18, tx + 18]) {
-    ctx.beginPath();
-    ctx.arc(bx, ty, 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = boltColor;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(bx, ty, 1.5, 0, Math.PI * 2);
-    ctx.fillStyle = active ? '#ffdd88' : '#99aabb';
-    ctx.fill();
+  for (const bx of [-18, 18]) {
+    ctx.beginPath(); ctx.arc(bx, 0, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = boltColor; ctx.fill();
+    ctx.beginPath(); ctx.arc(bx, 0, 1.5, 0, Math.PI*2);
+    ctx.fillStyle = active ? '#ffdd88' : '#99aabb'; ctx.fill();
   }
 
-  // Barrel — cylinder pointing downward
   const barrelW = 20, barrelH = 30;
-  const barrelX = tx - barrelW / 2;
-  const barrelTop = ty + baseH / 2 - 2;
-  const barrelGrad = ctx.createLinearGradient(barrelX, 0, barrelX + barrelW, 0);
+  const barrelTop = baseH / 2 - 2;
+  const barrelGrad = ctx.createLinearGradient(-barrelW/2, 0, barrelW/2, 0);
   barrelGrad.addColorStop(0,   active ? '#cc4400' : '#2a3550');
   barrelGrad.addColorStop(0.4, active ? '#ff9955' : '#5a6e88');
   barrelGrad.addColorStop(1,   active ? '#cc4400' : '#2a3550');
   ctx.fillStyle = barrelGrad;
   ctx.beginPath();
-  ctx.roundRect(barrelX, barrelTop, barrelW, barrelH, [2, 2, 6, 6]);
+  ctx.roundRect(-barrelW/2, barrelTop, barrelW, barrelH, [2, 2, 6, 6]);
   ctx.fill();
 
-  // Barrel rim ring
   ctx.strokeStyle = active ? '#ffaa44' : '#667799';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(barrelX - 2, barrelTop, barrelW + 4, 6, 2);
+  ctx.roundRect(-barrelW/2 - 2, barrelTop, barrelW + 4, 6, 2);
   ctx.stroke();
 
-  // Barrel opening (dark circle at bottom)
   const mouthY = barrelTop + barrelH - 2;
   ctx.beginPath();
-  ctx.ellipse(tx, mouthY, barrelW / 2 - 1, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, mouthY, barrelW/2 - 1, 5, 0, 0, Math.PI*2);
   ctx.fillStyle = active ? '#441100' : '#111822';
   ctx.fill();
   ctx.strokeStyle = active ? '#ff6622' : '#445566';
   ctx.lineWidth = 1.5;
   ctx.stroke();
+}
+
+function drawLaserTurretShape(active, overheated) {
+  // Sleek sci-fi energy cannon — barrel points in +Y direction (down)
+  const now = performance.now();
+  const pulse = Math.sin(now * 0.006) * 0.5 + 0.5; // 0–1 pulse
+
+  // Overheat glow override
+  if (overheated) {
+    ctx.shadowColor = `rgba(255, ${Math.floor(pulse * 80)}, 0, 0.9)`;
+    ctx.shadowBlur = 20 + pulse * 14;
+  } else if (active) {
+    ctx.shadowColor = '#00FFFF';
+    ctx.shadowBlur = 16;
+  }
+
+  // Base
+  const baseGrad = ctx.createLinearGradient(-27, -7, -27, 7);
+  baseGrad.addColorStop(0, overheated ? '#3a0a00' : (active ? '#004444' : '#2a3550'));
+  baseGrad.addColorStop(1, overheated ? '#220500' : (active ? '#002222' : '#1a2540'));
+  ctx.fillStyle = baseGrad;
+  ctx.beginPath();
+  ctx.roundRect(-27, -7, 54, 14, 5);
+  ctx.fill();
+
+  // Base accent stripe
+  ctx.fillStyle = overheated ? 'rgba(255,80,0,0.4)' : (active ? 'rgba(0,255,255,0.2)' : 'rgba(100,200,220,0.1)');
+  ctx.beginPath();
+  ctx.roundRect(-22, -5, 44, 3, 2);
+  ctx.fill();
+
+  // Side fins
+  const finColor = overheated ? '#cc3300' : (active ? '#006666' : '#334466');
+  for (const sx of [-27, 13]) {
+    ctx.fillStyle = finColor;
+    ctx.beginPath();
+    ctx.roundRect(sx, -4, 14, 10, 3);
+    ctx.fill();
+  }
+
+  // Barrel — sleek narrow cylinder
+  const barrelW = 14, barrelH = 32;
+  const barrelTop = 7;
+  const barrelGrad = ctx.createLinearGradient(-barrelW/2, 0, barrelW/2, 0);
+  barrelGrad.addColorStop(0,   overheated ? '#440000' : (active ? '#003333' : '#1a2540'));
+  barrelGrad.addColorStop(0.4, overheated ? '#994400' : (active ? '#009999' : '#3a5a78'));
+  barrelGrad.addColorStop(1,   overheated ? '#440000' : (active ? '#003333' : '#1a2540'));
+  ctx.fillStyle = barrelGrad;
+  ctx.beginPath();
+  ctx.roundRect(-barrelW/2, barrelTop, barrelW, barrelH, [3, 3, 4, 4]);
+  ctx.fill();
+
+  // Energy rings on barrel
+  const ringAlpha = overheated ? 0.8 : (active ? 0.55 : 0.2);
+  const ringColor = overheated
+    ? `rgba(255,${Math.floor(80 + pulse*120)},0,${ringAlpha})`
+    : `rgba(0,${Math.floor(180 + pulse*75)},255,${ringAlpha})`;
+  for (const ry of [13, 21, 29]) {
+    ctx.beginPath();
+    ctx.ellipse(0, ry, barrelW/2 + 1, 3, 0, 0, Math.PI*2);
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Glowing barrel tip
+  if (active && !overheated) {
+    const tipY = barrelTop + barrelH;
+    const tipGlow = ctx.createRadialGradient(0, tipY, 1, 0, tipY, 9);
+    tipGlow.addColorStop(0, `rgba(0,255,255,${0.7 + pulse * 0.3})`);
+    tipGlow.addColorStop(0.5, `rgba(0,180,255,0.4)`);
+    tipGlow.addColorStop(1, 'rgba(0,80,200,0)');
+    ctx.fillStyle = tipGlow;
+    ctx.beginPath();
+    ctx.arc(0, tipY, 9, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Overheated: red warning light at tip
+  if (overheated) {
+    const tipY = barrelTop + barrelH;
+    const tipGlow = ctx.createRadialGradient(0, tipY, 1, 0, tipY, 11);
+    tipGlow.addColorStop(0, `rgba(255,${Math.floor(pulse*80)},0,0.9)`);
+    tipGlow.addColorStop(1, 'rgba(200,0,0,0)');
+    ctx.fillStyle = tipGlow;
+    ctx.beginPath();
+    ctx.arc(0, tipY, 11, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawTurret() {
+  const tx = canvas.width / 2;
+  const ty = 20;
+  const active = currentTool === 'rocket';
+
+  ctx.save();
+  ctx.translate(tx, ty);
+  // Rotate barrel to face last shot direction (default: straight down = angle PI/2)
+  ctx.rotate(turretAngle - Math.PI / 2);
+
+  if (currentWeapon === 'laser') {
+    drawLaserTurretShape(active, laserOverheated);
+  } else {
+    if (active) {
+      ctx.shadowColor = '#FF6600';
+      ctx.shadowBlur  = 24;
+    }
+    drawRocketTurretShape(active);
+  }
 
   ctx.restore();
 }
@@ -1917,6 +2239,59 @@ function spawnAbsorptionBurst(x, y, color) {
   }
 }
 
+function drawLaserBeam() {
+  if (!laserBeam) return;
+  const { x1, y1, x2, y2, alpha } = laserBeam;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Outer glow
+  ctx.shadowColor = '#00FFFF';
+  ctx.shadowBlur = 18;
+  ctx.strokeStyle = 'rgba(0, 220, 255, 0.55)';
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  // Mid layer
+  ctx.shadowBlur = 8;
+  ctx.strokeStyle = 'rgba(100, 240, 255, 0.8)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  // Core — bright white
+  ctx.shadowBlur = 4;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawSteamParticles() {
+  for (const p of laserSteamParticles) {
+    const alpha = Math.max(0, (p.life / p.maxLife) * 0.55);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fillStyle = '#AADDFF';
+    ctx.shadowColor = '#44AACC';
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function tryFireRocket(tx, ty) {
   if (magazineCount <= 0) {
     // Empty magazine — dull click + flash slots
@@ -1930,6 +2305,8 @@ function tryFireRocket(tx, ty) {
   const dx = tx - sx, dy = ty - sy;
   const len = Math.hypot(dx, dy);
   if (len < 1) return;
+
+  turretAngle = Math.atan2(dy, dx);
 
   // Consume one rocket from magazine
   magazineCount--;
@@ -1963,6 +2340,86 @@ function flashMagazineEmpty() {
   }
 }
 
+function tryFireLaser(tx, ty) {
+  if (laserOverheated) return;   // silently ignore during forced cooldown
+
+  const now = performance.now() / 1000;
+  if (now - lastLaserFireTime < LASER_FIRE_COOLDOWN) return;  // rate limit
+  lastLaserFireTime = now;
+
+  const sx = canvas.width / 2;
+  const sy = 20;
+  const dx = tx - sx, dy = ty - sy;
+  turretAngle = Math.atan2(dy, dx);
+
+  // Add heat
+  const prevHeat = laserHeat;
+  laserHeat += LASER_HEAT_PER_SHOT;
+  const wasWarning = prevHeat >= LASER_HEAT_MAX * 0.75;
+
+  if (laserHeat >= LASER_HEAT_MAX) {
+    laserHeat = LASER_HEAT_MAX;
+    laserOverheated = true;
+    laserOverheatTimer = LASER_OVERHEAT_COOLDOWN;
+    soundEngine.playOverheatTriggered();
+    spawnSteamParticles(sx, sy);
+  } else {
+    soundEngine.playLaserFire();
+    if (wasWarning) soundEngine.playOverheatWarning();
+  }
+
+  // Hitscan — check all active balls along the beam segment
+  const absorbedIdx = [];
+  for (let i = balls.length - 1; i >= 0; i--) {
+    const b = balls[i];
+    if (b.gcFading) continue;
+    if (distToSeg(b.x, b.y, sx, sy, tx, ty) < b.props.radius + 4) {
+      absorbedIdx.push(i);
+    }
+  }
+  for (const i of absorbedIdx) {
+    const b = balls[i];
+    spawnAbsorptionBurst(b.x, b.y, b.props.color);
+    soundEngine.playRocketAbsorb(b.props.color);
+    balls.splice(i, 1);
+    addScore(10);
+  }
+
+  // Beam visual
+  laserBeam = { x1: sx, y1: sy, x2: tx, y2: ty, alpha: 1.0, timer: LASER_BEAM_DURATION };
+}
+
+function spawnSteamParticles(x, y) {
+  for (let i = 0; i < 6; i++) {
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.7;
+    const speed = 25 + Math.random() * 55;
+    const life = 0.4 + Math.random() * 0.5;
+    laserSteamParticles.push({
+      x: x + (Math.random() - 0.5) * 14,
+      y: y + 30,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life,
+      maxLife: life,
+      size: 3 + Math.random() * 4,
+    });
+  }
+}
+
+function setWeapon(weapon) {
+  currentWeapon = weapon;
+  document.querySelectorAll('.weapon-btn').forEach(b => {
+    b.classList.remove('active', 'laser-weapon-active');
+  });
+  if (weapon === 'laser') {
+    document.getElementById('weapon-laser').classList.add('active', 'laser-weapon-active');
+    document.getElementById('heat-wrap').style.display = 'flex';
+  } else {
+    document.getElementById('weapon-rocket').classList.add('active');
+    document.getElementById('heat-wrap').style.display = 'none';
+  }
+}
+
 function updateMagazine() {
   const now = performance.now();
 
@@ -1986,7 +2443,11 @@ function updateMagazine() {
   // ---- Update rocket button ----
   const btn   = document.getElementById('btn-rocket');
   const label = document.getElementById('rocket-label');
-  label.textContent = `🚀 ${magazineCount}/${MAGAZINE_CAPACITY}`;
+  if (currentWeapon === 'laser') {
+    label.textContent = laserOverheated ? '⚡ COOLING' : '⚡ Laser';
+  } else {
+    label.textContent = `🚀 ${magazineCount}/${MAGAZINE_CAPACITY}`;
+  }
   btn.style.opacity = '1.0';
   btn.style.cursor  = 'pointer';
 
@@ -2015,6 +2476,37 @@ function updateMagazine() {
   }
 }
 
+function updateHeatUI() {
+  if (currentWeapon !== 'laser') return;
+  const heatBar = document.getElementById('heat-bar-inner');
+  const heatLabel = document.getElementById('heat-label-text');
+  if (!heatBar) return;
+
+  const pct = laserHeat / LASER_HEAT_MAX;
+  heatBar.style.width = `${pct * 100}%`;
+
+  let color, labelText;
+  if (laserOverheated) {
+    const flash = Math.sin(Date.now() * 0.012) > 0;
+    color = flash ? '#FF2200' : '#881100';
+    labelText = 'OVERHEAT';
+  } else if (pct > 0.85) {
+    color = '#FF2200';
+    labelText = 'CRITICAL';
+  } else if (pct > 0.65) {
+    color = '#FF6600';
+    labelText = 'HOT';
+  } else if (pct > 0.40) {
+    color = '#FFCC00';
+    labelText = 'WARM';
+  } else {
+    color = '#00CC44';
+    labelText = 'Heat';
+  }
+  heatBar.style.background = color;
+  if (heatLabel) heatLabel.textContent = labelText;
+}
+
 function render(ts) {
   requestAnimationFrame(render);
 
@@ -2038,9 +2530,12 @@ function render(ts) {
   drawBalls();
   drawRocketParticles();
   drawRocket();
+  drawLaserBeam();
+  drawSteamParticles();
   drawTurret();
   drawGhost();
   updateMagazine();
+  updateHeatUI();
 
   // Version watermark
   ctx.save();
@@ -2048,7 +2543,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v2.4', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v3.0', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
@@ -2144,6 +2639,14 @@ function clearAll() {
     rockets = []; rocketParticles = [];
     magazineCount = 0; chargeStart = null; isFirstCharge = true;
     firstDropTime = null;
+    // Reset laser state
+    laserHeat = 0;
+    laserOverheated = false;
+    laserOverheatTimer = 0;
+    lastLaserFireTime = -999;
+    laserBeam = null;
+    laserSteamParticles = [];
+    turretAngle = Math.PI / 2;
     // Reset score
     score = 0;
     document.getElementById('score-lcd').textContent = '00000';
@@ -2184,6 +2687,7 @@ window.changeBallCount = changeBallCount;
 window.dropBalls      = dropBalls;
 window.clearAll       = clearAll;
 window.toggleSound    = toggleSound;
+window.setWeapon      = setWeapon;
 
 // Wait for full layout before init — prevents zero canvas dimensions on iPad Safari
 window.addEventListener('load', init);
