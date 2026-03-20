@@ -2352,6 +2352,20 @@ function tryFireLaser(tx, ty) {
   const dx = tx - sx, dy = ty - sy;
   turretAngle = Math.atan2(dy, dx);
 
+  // Extend beam from turret through tap point to canvas edge
+  const W = canvas.width, H = canvas.height;
+  let tMin = Infinity;
+  if (dx !== 0) {
+    const tLeft  = (0 - sx) / dx; if (tLeft  > 0) tMin = Math.min(tMin, tLeft);
+    const tRight = (W - sx) / dx; if (tRight > 0) tMin = Math.min(tMin, tRight);
+  }
+  if (dy !== 0) {
+    const tTop    = (0 - sy) / dy; if (tTop    > 0) tMin = Math.min(tMin, tTop);
+    const tBottom = (H - sy) / dy; if (tBottom > 0) tMin = Math.min(tMin, tBottom);
+  }
+  const ex = sx + tMin * dx;
+  const ey = sy + tMin * dy;
+
   // Add heat
   const prevHeat = laserHeat;
   laserHeat += LASER_HEAT_PER_SHOT;
@@ -2368,12 +2382,12 @@ function tryFireLaser(tx, ty) {
     if (wasWarning) soundEngine.playOverheatWarning();
   }
 
-  // Hitscan — check all active balls along the beam segment
+  // Hitscan — check ALL active balls along the full beam line to canvas edge
   const absorbedIdx = [];
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
     if (b.gcFading) continue;
-    if (distToSeg(b.x, b.y, sx, sy, tx, ty) < b.props.radius + 4) {
+    if (distToSeg(b.x, b.y, sx, sy, ex, ey) < b.props.radius + 4) {
       absorbedIdx.push(i);
     }
   }
@@ -2385,8 +2399,8 @@ function tryFireLaser(tx, ty) {
     addScore(10);
   }
 
-  // Beam visual
-  laserBeam = { x1: sx, y1: sy, x2: tx, y2: ty, alpha: 1.0, timer: LASER_BEAM_DURATION };
+  // Beam visual — full line from turret to canvas edge
+  laserBeam = { x1: sx, y1: sy, x2: ex, y2: ey, alpha: 1.0, timer: LASER_BEAM_DURATION };
 }
 
 function spawnSteamParticles(x, y) {
@@ -2534,7 +2548,7 @@ function render(ts) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('v3.2', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v3.3', canvas.width - 8, canvas.height - 8);
   ctx.restore();
 }
 
