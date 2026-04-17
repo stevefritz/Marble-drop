@@ -763,10 +763,8 @@ html, body {
 
 <script>
 (function () {
-  if (localStorage.getItem('marble-drop-welcome-seen')) return;
   document.getElementById('welcome-overlay').style.display = 'flex';
   document.getElementById('welcome-ok-btn').addEventListener('click', function () {
-    localStorage.setItem('marble-drop-welcome-seen', '1');
     document.getElementById('welcome-overlay').style.display = 'none';
   });
 }());
