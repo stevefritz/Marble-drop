@@ -511,6 +511,122 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
+/* ===== WELCOME MODAL ===== */
+#welcome-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+#welcome-modal {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 18px;
+  max-width: 420px;
+  width: 100%;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+#welcome-modal h1 {
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-align: center;
+  margin: 0;
+}
+
+.welcome-version {
+  color: #6a8abf;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: -12px;
+}
+
+.welcome-origin {
+  color: #8eadd4;
+  font-size: 15px;
+  font-style: italic;
+  text-align: center;
+}
+
+.welcome-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.welcome-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.welcome-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #0f3460;
+  border: 1.5px solid #1a4a7a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.welcome-feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.welcome-feature-label {
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.welcome-feature-desc {
+  color: #6a8abf;
+  font-size: 13px;
+}
+
+.welcome-footer {
+  color: #4a7a8a;
+  font-size: 13px;
+  text-align: center;
+}
+
+#welcome-ok-btn {
+  width: 100%;
+  height: 54px;
+  background: linear-gradient(135deg, #ff6b35, #ff3333);
+  color: white;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(255,60,60,0.45);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+  outline: none;
+}
+#welcome-ok-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(255,60,60,0.35);
+}
 </style>
 </head>
 <body>
@@ -610,7 +726,51 @@ html, body {
 
 </div>
 
+<div id="welcome-overlay">
+  <div id="welcome-modal">
+    <h1>Marble Drop Builder</h1>
+    <div class="welcome-version">v3.4</div>
+    <div class="welcome-origin">Born from a 7-year-old's wishlist.</div>
+    <div class="welcome-features">
+      <div class="welcome-feature-row">
+        <div class="welcome-icon-box">🧱</div>
+        <div class="welcome-feature-text">
+          <div class="welcome-feature-label">Build</div>
+          <div class="welcome-feature-desc">Draw walls, curves, and bumpers on the grid.</div>
+        </div>
+      </div>
+      <div class="welcome-feature-row">
+        <div class="welcome-icon-box">🟡</div>
+        <div class="welcome-feature-text">
+          <div class="welcome-feature-label">Drop</div>
+          <div class="welcome-feature-desc">Pick a color, crank the count, and let 'em fly.</div>
+        </div>
+      </div>
+      <div class="welcome-feature-row">
+        <div class="welcome-icon-box">💥</div>
+        <div class="welcome-feature-text">
+          <div class="welcome-feature-label">Destroy</div>
+          <div class="welcome-feature-desc">Rockets charge up over time. Lasers are instant but overheat. Aim for the marbles!</div>
+        </div>
+      </div>
+    </div>
+    <div class="welcome-footer">Each hit scores 10 points. The only way to win is to have fun.</div>
+    <button id="welcome-ok-btn">OK, LET'S GO!</button>
+  </div>
+</div>
+
 <script type="module" src="js/main.js"></script>
+
+<script>
+(function () {
+  if (localStorage.getItem('marble-drop-welcome-seen')) return;
+  document.getElementById('welcome-overlay').style.display = 'flex';
+  document.getElementById('welcome-ok-btn').addEventListener('click', function () {
+    localStorage.setItem('marble-drop-welcome-seen', '1');
+    document.getElementById('welcome-overlay').style.display = 'none';
+  });
+}());
+</script>
 
 <!-- All JavaScript moved to ES modules in js/ directory. See js/main.js as entry point. -->
 </body>
