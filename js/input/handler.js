@@ -7,6 +7,7 @@ import { snapToDot } from '../engine/grid.js';
 import { distToSeg, distToCurve } from '../utils/math.js';
 import { tryFireRocket } from '../weapons/rocket.js';
 import { tryFireLaser } from '../weapons/laser.js';
+import { clampCannonAngle } from '../rendering/cannon.js';
 
 function getPos(e) {
   const rect = state.canvas.getBoundingClientRect();
@@ -50,6 +51,29 @@ function eraseAt(x, y) {
 }
 
 function onStart(x, y) {
+  // Cannon aiming: intercept if drag starts near placed cannon (works with any tool)
+  if (state.cannonPlaced && state.cannonPos) {
+    const dist = Math.hypot(x - state.cannonPos.x, y - state.cannonPos.y);
+    if (dist < 55) {
+      state.isAimingCannon = true;
+      const dx = x - state.cannonPos.x;
+      const dy = y - state.cannonPos.y;
+      if (Math.hypot(dx, dy) > 5) {
+        state.cannonAngle = clampCannonAngle(Math.atan2(dy, dx));
+      }
+      return;
+    }
+  }
+
+  if (state.currentTool === 'cannon') {
+    const dot = snapToDot(x, y);
+    if (dot) {
+      state.cannonPos = { x: dot.x, y: dot.y };
+      state.cannonPlaced = true;
+    }
+    return;
+  }
+
   if (state.currentTool === 'rocket') {
     tryFireRocket(x, y);
     return;
@@ -90,6 +114,14 @@ function onStart(x, y) {
 }
 
 function onMove(x, y) {
+  if (state.isAimingCannon && state.cannonPos) {
+    const dx = x - state.cannonPos.x;
+    const dy = y - state.cannonPos.y;
+    if (Math.hypot(dx, dy) > 5) {
+      state.cannonAngle = clampCannonAngle(Math.atan2(dy, dx));
+    }
+    return;
+  }
   if (state.editingCurve) {
     state.editingCurve.cx = x;
     state.editingCurve.cy = y;
@@ -101,6 +133,7 @@ function onMove(x, y) {
 }
 
 function onEnd(x, y) {
+  if (state.isAimingCannon) { state.isAimingCannon = false; return; }
   if (state.editingCurve) { state.editingCurve = null; return; }
   if (!state.isDrawing) return;
   state.isDrawing = false;
@@ -125,9 +158,9 @@ export function setupInput() {
   canvas.addEventListener('mousedown',  e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); });
   canvas.addEventListener('mousemove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  });
   canvas.addEventListener('mouseup',    e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   });
-  canvas.addEventListener('mouseleave', e => { if(state.isDrawing||state.editingCurve){ const p=getPos(e); onEnd(p.x,p.y); } });
+  canvas.addEventListener('mouseleave', e => { if(state.isAimingCannon){state.isAimingCannon=false;return;} if(state.isDrawing||state.editingCurve){ const p=getPos(e); onEnd(p.x,p.y); } });
   canvas.addEventListener('touchstart', e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); }, opts);
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  }, opts);
   canvas.addEventListener('touchend',   e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   }, opts);
-  canvas.addEventListener('touchcancel',e => { state.isDrawing=false; state.editingCurve=null; state.drawStart=null; state.ghostPos=null; }, opts);
+  canvas.addEventListener('touchcancel',e => { state.isDrawing=false; state.editingCurve=null; state.drawStart=null; state.ghostPos=null; state.isAimingCannon=false; }, opts);
 }

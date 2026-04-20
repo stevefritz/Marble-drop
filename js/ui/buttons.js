@@ -2,16 +2,16 @@
 'use strict';
 
 import {
-  setTool, setBallColor, setLineColor, setGridSize,
-  changeBallCount, dropBalls, clearAll, toggleSound
+  setTool, setLineColor, setGridSize,
+  changeBallCount, dropBalls, clearAll, toggleSound,
+  setBallWeight, setBallBounce, setCannonPower
 } from '../input/tools.js';
 
 export function setupButtons() {
-  // Ball color buttons
-  document.getElementById('btn-yellow').addEventListener('click', () => setBallColor('yellow'));
-  document.getElementById('btn-red').addEventListener('click',    () => setBallColor('red'));
-  document.getElementById('btn-blue').addEventListener('click',   () => setBallColor('blue'));
-  document.getElementById('btn-green').addEventListener('click',  () => setBallColor('green'));
+  // Ball property sliders
+  document.getElementById('slider-weight').addEventListener('input', e => setBallWeight(Number(e.target.value)));
+  document.getElementById('slider-bounce').addEventListener('input', e => setBallBounce(Number(e.target.value)));
+  document.getElementById('slider-power').addEventListener('input',  e => setCannonPower(Number(e.target.value)));
 
   // Ball count buttons
   document.getElementById('btn-count-minus').addEventListener('click', () => changeBallCount(-1));
@@ -32,6 +32,7 @@ export function setupButtons() {
   document.getElementById('btn-curve').addEventListener('click',  () => setTool('curve'));
   document.getElementById('btn-peg').addEventListener('click',    () => setTool('peg'));
   document.getElementById('btn-eraser').addEventListener('click', () => setTool('eraser'));
+  document.getElementById('btn-cannon').addEventListener('click', () => setTool('cannon'));
   document.getElementById('btn-rocket').addEventListener('click', () => setTool('rocket'));
 
   // Clear all

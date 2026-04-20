@@ -49,4 +49,12 @@ export const state = {
   laserBeam: null,
   laserSteamParticles: [],
   turretAngle: Math.PI / 2,
+
+  cannonPos: null,
+  cannonAngle: -Math.PI / 4,
+  cannonPlaced: false,
+  cannonPower: 50,
+  ballWeight: 50,
+  ballBounce: 50,
+  isAimingCannon: false,
 };

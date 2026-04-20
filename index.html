@@ -41,37 +41,62 @@ html, body {
   flex-shrink: 0;
 }
 
-.color-section {
+.slider-section {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
-.color-label {
+.slider-label {
   color: #6a8abf;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  writing-mode: horizontal-tb;
 }
 
-.color-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  border: 4px solid transparent;
-  cursor: pointer;
-  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
-  flex-shrink: 0;
+.prop-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 6px;
+  background: #0f3460;
+  border-radius: 3px;
   outline: none;
+  cursor: pointer;
 }
-.color-btn.active {
-  border-color: white;
-  transform: scale(1.18);
-  box-shadow: 0 0 12px rgba(255,255,255,0.4);
+
+.prop-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4aacff;
+  border: 2px solid #1a6a99;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(74,172,255,0.4);
 }
-.color-btn:active { transform: scale(0.93); }
+
+.prop-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4aacff;
+  border: 2px solid #1a6a99;
+  cursor: pointer;
+}
+
+#color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,0.2);
+  background: rgb(168, 150, 150);
+}
 
 .divider-v {
   width: 2px;
@@ -634,12 +659,27 @@ html, body {
 
   <!-- HOPPER BAR -->
   <div id="hopper-bar">
-    <span class="color-label">Color:</span>
-    <div class="color-section">
-      <button class="color-btn active" id="btn-yellow" style="background:radial-gradient(circle at 35% 35%, #FFE566, #FFCC00)" title="Normal"></button>
-      <button class="color-btn" id="btn-red"    style="background:radial-gradient(circle at 35% 35%, #FF7777, #FF3333)" title="Fast"></button>
-      <button class="color-btn" id="btn-blue"   style="background:radial-gradient(circle at 35% 35%, #66AAFF, #3366FF)" title="Heavy"></button>
-      <button class="color-btn" id="btn-green"  style="background:radial-gradient(circle at 35% 35%, #66EE66, #22BB22)" title="Bouncy"></button>
+    <div class="slider-section">
+      <label class="slider-label">Weight</label>
+      <input type="range" id="slider-weight" class="prop-slider" min="0" max="100" value="50">
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div class="slider-section">
+      <label class="slider-label">Bounce</label>
+      <input type="range" id="slider-bounce" class="prop-slider" min="0" max="100" value="50">
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div id="color-swatch"></div>
+
+    <div class="divider-v"></div>
+
+    <div class="slider-section">
+      <label class="slider-label">Power</label>
+      <input type="range" id="slider-power" class="prop-slider" min="0" max="100" value="50">
     </div>
 
     <div class="divider-v"></div>
@@ -681,7 +721,7 @@ html, body {
     </div>
 
     <button id="mute-btn" title="Toggle sound">🔊</button>
-    <button id="drop-btn">DROP!</button>
+    <button id="drop-btn">FIRE!</button>
   </div>
 
   <!-- MAIN AREA -->
@@ -696,6 +736,7 @@ html, body {
       <button class="tool-btn"        id="btn-curve">~ Curve</button>
       <button class="tool-btn"        id="btn-peg">&#9679; Peg</button>
       <button class="tool-btn"        id="btn-eraser">X Erase</button>
+      <button class="tool-btn"        id="btn-cannon">&#127919; Cannon</button>
 
       <div class="palette-divider"></div>
       <button class="tool-btn" id="btn-rocket"><span id="rocket-label">🚀 Rocket</span></button>

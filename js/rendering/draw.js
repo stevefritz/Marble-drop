@@ -10,6 +10,7 @@ import { lighten, darken } from '../utils/color.js';
 import { updatePhysics } from '../engine/physics.js';
 import { drawGhost, drawRocketParticles, drawSteamParticles } from './effects.js';
 import { drawTurret, drawRocket, drawLaserBeam } from './turret.js';
+import { drawCannon } from './cannon.js';
 import { updateMagazine, updateHeatUI } from './hud.js';
 
 function drawGrid() {
@@ -193,6 +194,7 @@ export function render(ts) {
   drawWalls();
   drawCurves();
   drawPegs();
+  drawCannon();
   drawBalls();
   drawRocketParticles();
   drawRocket();

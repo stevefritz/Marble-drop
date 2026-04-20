@@ -6,6 +6,7 @@ import { BALL_COUNTS } from './config.js';
 import { setupGrid } from './engine/grid.js';
 import { setupInput } from './input/handler.js';
 import { setupButtons } from './ui/buttons.js';
+import { initBallProps } from './input/tools.js';
 import { render } from './rendering/draw.js';
 
 function resizeCanvas() {
@@ -30,6 +31,7 @@ function init() {
   resizeCanvas();
   setupInput();
   setupButtons();
+  initBallProps();
 
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => { resizeCanvas(); });
