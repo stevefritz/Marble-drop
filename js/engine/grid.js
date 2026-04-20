@@ -9,7 +9,7 @@ export function setupGrid() {
   const padY = 22;
   const availW = state.canvas.width  - padX * 2;
   const availH = state.canvas.height - padY * 2;
-  const targetSpacing = { small: 80, medium: 55, large: 38 }[state.currentGridSize];
+  const targetSpacing = 55;
   state.gridCols = Math.max(4, Math.round(availW / targetSpacing) + 1);
   state.gridRows = Math.max(3, Math.round(availH / targetSpacing) + 1);
   state.gridSpacing = Math.min(availW / (state.gridCols - 1), availH / (state.gridRows - 1));

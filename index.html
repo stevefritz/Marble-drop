@@ -254,28 +254,6 @@ html, body {
 }
 #clear-btn:active { background: #7a2020; }
 
-.size-btns {
-  display: flex;
-  gap: 6px;
-}
-.size-btn {
-  flex: 1;
-  height: 46px;
-  border-radius: 10px;
-  background: #0f3460;
-  color: white;
-  font-size: 15px;
-  font-weight: 800;
-  border: 3px solid transparent;
-  cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
-  outline: none;
-}
-.size-btn.active {
-  background: #1a4a7a;
-  border-color: #4aacff;
-}
-.size-btn:active { opacity: 0.75; }
 
 /* ===== MAGAZINE DISPLAY ===== */
 #magazine-wrap {
@@ -698,9 +676,6 @@ html, body {
       <button class="tool-btn"        id="btn-eraser">X Erase</button>
 
       <div class="palette-divider"></div>
-      <button class="tool-btn" id="btn-rocket"><span id="rocket-label">🚀 Rocket</span></button>
-
-      <div class="palette-divider"></div>
       <button id="clear-btn">Clear All</button>
 
       <div class="palette-divider"></div>
@@ -714,13 +689,6 @@ html, body {
         <button class="line-color-btn"        id="lc-purple" style="background:#CC44FF" title="Purple"></button>
       </div>
 
-      <div class="palette-divider"></div>
-      <div class="palette-label">Grid Size</div>
-      <div class="size-btns">
-        <button class="size-btn"        id="size-S">S</button>
-        <button class="size-btn active" id="size-M">M</button>
-        <button class="size-btn"        id="size-L">L</button>
-      </div>
     </div>
   </div>
 

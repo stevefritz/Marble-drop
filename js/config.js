@@ -1,12 +1,6 @@
 // config.js — all constants, never mutated
 'use strict';
 
-export const GRID_SIZES = {
-  small:  { cols: 8,  rows: 6  },
-  medium: { cols: 12, rows: 9  },
-  large:  { cols: 16, rows: 12 },
-};
-
 export const BALL_PROPS = {
   yellow: { color: '#FFCC00', glow: '#FFE566', speed: 1.0, mass: 1.0,  restitution: 0.62, radius: 8 },
   red:    { color: '#FF3333', glow: '#FF8866', speed: 1.8, mass: 1.0,  restitution: 0.52, radius: 8 },
