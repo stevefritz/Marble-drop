@@ -6,7 +6,6 @@ import {
   BALL_COUNTS, MAX_BALLS, LINE_COLORS
 } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
-import { setupGrid } from '../engine/grid.js';
 
 export function setTool(tool) {
   state.currentTool = tool;
@@ -15,7 +14,6 @@ export function setTool(tool) {
   document.querySelectorAll('.weapon-btn').forEach(b => b.classList.remove('active', 'laser-weapon-active'));
 
   if (tool === 'rocket' || tool === 'laser') {
-    document.getElementById('btn-rocket').classList.add('active');
     if (tool === 'laser') {
       document.getElementById('weapon-laser').classList.add('active', 'laser-weapon-active');
       document.getElementById('heat-wrap').style.display = 'flex';
@@ -29,14 +27,6 @@ export function setTool(tool) {
   }
 
   state.isDrawing = false; state.drawStart = null; state.ghostPos = null; state.editingCurve = null;
-}
-
-export function setGridSize(size) {
-  state.currentGridSize = size;
-  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
-  const ids = { small: 'S', medium: 'M', large: 'L' };
-  document.getElementById('size-' + ids[size]).classList.add('active');
-  setupGrid();
 }
 
 export function computeBallColor(weight, bounce) {

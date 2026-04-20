@@ -47,16 +47,6 @@ export function updateMagazine() {
     }
   }
 
-  const btn   = document.getElementById('btn-rocket');
-  const label = document.getElementById('rocket-label');
-  if (state.currentTool === 'laser') {
-    label.textContent = state.laserOverheated ? '⚡ COOLING' : '⚡ Laser';
-  } else {
-    label.textContent = `🚀 ${state.magazineCount}/${MAGAZINE_CAPACITY}`;
-  }
-  btn.style.opacity = '1.0';
-  btn.style.cursor  = 'pointer';
-
   const chargeTime = state.isFirstCharge ? ROCKET_LOCK_DURATION : MAGAZINE_CHARGE_TIME;
   const chargePct  = (state.firstDropTime && state.chargeStart !== null)
     ? Math.min(1, (now - state.chargeStart) / chargeTime)
