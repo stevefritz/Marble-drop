@@ -605,6 +605,61 @@ html, body {
   transform: scale(0.95);
   box-shadow: 0 2px 8px rgba(255,60,60,0.35);
 }
+
+/* ===== MOBILE GATE ===== */
+#mobile-gate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #1a1a2e;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px;
+  text-align: center;
+}
+
+#mobile-gate h1 {
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+#mobile-gate p {
+  color: #8eadd4;
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+#mobile-gate a {
+  color: #4aacff;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid #4aacff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+#mobile-gate a:active {
+  background: rgba(74, 172, 255, 0.15);
+}
+
+@media (max-width: 767px) {
+  #mobile-gate {
+    display: flex;
+  }
+  #app {
+    display: none !important;
+  }
+  #welcome-overlay {
+    display: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -692,6 +747,12 @@ html, body {
     </div>
   </div>
 
+</div>
+
+<div id="mobile-gate">
+  <h1>Marble Drop Builder</h1>
+  <p>This game is built for bigger screens. Grab a tablet or desktop to play!</p>
+  <a href="https://github.com/stevefritz/Marble-drop">View on GitHub</a>
 </div>
 
 <div id="welcome-overlay">
