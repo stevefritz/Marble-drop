@@ -11,6 +11,7 @@ import { updatePhysics } from '../engine/physics.js';
 import { drawGhost, drawRocketParticles, drawSteamParticles } from './effects.js';
 import { drawTurret, drawRocket, drawLaserBeam } from './turret.js';
 import { updateMagazine, updateHeatUI } from './hud.js';
+import { drawCannon } from './cannon.js';
 
 function drawGrid() {
   const ctx = state.ctx;
@@ -193,6 +194,7 @@ export function render(ts) {
   drawWalls();
   drawCurves();
   drawPegs();
+  drawCannon();
   drawBalls();
   drawRocketParticles();
   drawRocket();

@@ -2,16 +2,15 @@
 'use strict';
 
 import {
-  setTool, setBallColor, setLineColor,
-  changeBallCount, dropBalls, clearAll, toggleSound
+  setTool, setLineColor, setBallWeight, setBallBounce, setCannonPower,
+  changeBallCount, dropBalls, clearAll, toggleSound, updateColorSwatch
 } from '../input/tools.js';
 
 export function setupButtons() {
-  // Ball color buttons
-  document.getElementById('btn-yellow').addEventListener('click', () => setBallColor('yellow'));
-  document.getElementById('btn-red').addEventListener('click',    () => setBallColor('red'));
-  document.getElementById('btn-blue').addEventListener('click',   () => setBallColor('blue'));
-  document.getElementById('btn-green').addEventListener('click',  () => setBallColor('green'));
+  // Ball property sliders
+  document.getElementById('slider-weight').addEventListener('input', (e) => setBallWeight(e.target.value));
+  document.getElementById('slider-bounce').addEventListener('input', (e) => setBallBounce(e.target.value));
+  document.getElementById('slider-power').addEventListener('input',  (e) => setCannonPower(e.target.value));
 
   // Ball count buttons
   document.getElementById('btn-count-minus').addEventListener('click', () => changeBallCount(-1));
@@ -24,7 +23,7 @@ export function setupButtons() {
   // Sound toggle
   document.getElementById('mute-btn').addEventListener('click', () => toggleSound());
 
-  // Drop button
+  // Fire button
   document.getElementById('drop-btn').addEventListener('click', () => dropBalls());
 
   // Tool palette
@@ -43,4 +42,6 @@ export function setupButtons() {
   document.getElementById('lc-orange').addEventListener('click', () => setLineColor('orange'));
   document.getElementById('lc-purple').addEventListener('click', () => setLineColor('purple'));
 
+  // Initialize color swatch
+  updateColorSwatch();
 }
