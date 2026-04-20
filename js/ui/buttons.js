@@ -2,7 +2,7 @@
 'use strict';
 
 import {
-  setTool, setBallColor, setLineColor, setGridSize,
+  setTool, setBallColor, setLineColor,
   changeBallCount, dropBalls, clearAll, toggleSound
 } from '../input/tools.js';
 
@@ -32,8 +32,6 @@ export function setupButtons() {
   document.getElementById('btn-curve').addEventListener('click',  () => setTool('curve'));
   document.getElementById('btn-peg').addEventListener('click',    () => setTool('peg'));
   document.getElementById('btn-eraser').addEventListener('click', () => setTool('eraser'));
-  document.getElementById('btn-rocket').addEventListener('click', () => setTool('rocket'));
-
   // Clear all
   document.getElementById('clear-btn').addEventListener('click', () => clearAll());
 
@@ -45,8 +43,4 @@ export function setupButtons() {
   document.getElementById('lc-orange').addEventListener('click', () => setLineColor('orange'));
   document.getElementById('lc-purple').addEventListener('click', () => setLineColor('purple'));
 
-  // Grid size buttons
-  document.getElementById('size-S').addEventListener('click', () => setGridSize('small'));
-  document.getElementById('size-M').addEventListener('click', () => setGridSize('medium'));
-  document.getElementById('size-L').addEventListener('click', () => setGridSize('large'));
 }

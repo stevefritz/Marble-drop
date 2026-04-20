@@ -19,7 +19,6 @@ export const state = {
   score: 0,
 
   currentTool: 'wall',
-  currentGridSize: 'medium',
   currentBallColor: 'yellow',
   currentLineColor: '#FFFFFF',
 
@@ -37,7 +36,7 @@ export const state = {
   rockets: [],
   rocketParticles: [],
   firstDropTime: null,
-  magazineCount: 0,
+  magazineCount: 1,
   chargeStart: null,
   isFirstCharge: true,
 

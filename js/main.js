@@ -41,6 +41,8 @@ function init() {
   document.getElementById('count-display').textContent = BALL_COUNTS[state.ballCountIdx];
 
   state.lastTimestamp = performance.now();
+  state.firstDropTime = performance.now();
+  state.chargeStart = performance.now();
   requestAnimationFrame(render);
 }
 

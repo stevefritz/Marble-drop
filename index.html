@@ -254,28 +254,6 @@ html, body {
 }
 #clear-btn:active { background: #7a2020; }
 
-.size-btns {
-  display: flex;
-  gap: 6px;
-}
-.size-btn {
-  flex: 1;
-  height: 46px;
-  border-radius: 10px;
-  background: #0f3460;
-  color: white;
-  font-size: 15px;
-  font-weight: 800;
-  border: 3px solid transparent;
-  cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
-  outline: none;
-}
-.size-btn.active {
-  background: #1a4a7a;
-  border-color: #4aacff;
-}
-.size-btn:active { opacity: 0.75; }
 
 /* ===== MAGAZINE DISPLAY ===== */
 #magazine-wrap {
@@ -627,6 +605,61 @@ html, body {
   transform: scale(0.95);
   box-shadow: 0 2px 8px rgba(255,60,60,0.35);
 }
+
+/* ===== MOBILE GATE ===== */
+#mobile-gate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #1a1a2e;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px;
+  text-align: center;
+}
+
+#mobile-gate h1 {
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+#mobile-gate p {
+  color: #8eadd4;
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+#mobile-gate a {
+  color: #4aacff;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid #4aacff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+#mobile-gate a:active {
+  background: rgba(74, 172, 255, 0.15);
+}
+
+@media (max-width: 767px) {
+  #mobile-gate {
+    display: flex;
+  }
+  #app {
+    display: none !important;
+  }
+  #welcome-overlay {
+    display: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -698,9 +731,6 @@ html, body {
       <button class="tool-btn"        id="btn-eraser">X Erase</button>
 
       <div class="palette-divider"></div>
-      <button class="tool-btn" id="btn-rocket"><span id="rocket-label">🚀 Rocket</span></button>
-
-      <div class="palette-divider"></div>
       <button id="clear-btn">Clear All</button>
 
       <div class="palette-divider"></div>
@@ -714,43 +744,42 @@ html, body {
         <button class="line-color-btn"        id="lc-purple" style="background:#CC44FF" title="Purple"></button>
       </div>
 
-      <div class="palette-divider"></div>
-      <div class="palette-label">Grid Size</div>
-      <div class="size-btns">
-        <button class="size-btn"        id="size-S">S</button>
-        <button class="size-btn active" id="size-M">M</button>
-        <button class="size-btn"        id="size-L">L</button>
-      </div>
     </div>
   </div>
 
 </div>
 
+<div id="mobile-gate">
+  <h1>Marble Drop Builder</h1>
+  <p>This game is built for bigger screens. Grab a tablet or desktop to play!</p>
+  <a href="https://github.com/stevefritz/Marble-drop">View on GitHub</a>
+</div>
+
 <div id="welcome-overlay">
   <div id="welcome-modal">
     <h1>Marble Drop Builder</h1>
-    <div class="welcome-version">v3.4</div>
+    <div class="welcome-version">v4.0</div>
     <div class="welcome-origin">Born from a 7-year-old's wishlist.</div>
     <div class="welcome-features">
       <div class="welcome-feature-row">
         <div class="welcome-icon-box">🧱</div>
         <div class="welcome-feature-text">
           <div class="welcome-feature-label">Build</div>
-          <div class="welcome-feature-desc">Draw walls, curves, and bumpers on the grid.</div>
+          <div class="welcome-feature-desc">Draw walls, curves, and bumpers on the grid. Place your cannon.</div>
         </div>
       </div>
       <div class="welcome-feature-row">
-        <div class="welcome-icon-box">🟡</div>
+        <div class="welcome-icon-box">🎯</div>
         <div class="welcome-feature-text">
-          <div class="welcome-feature-label">Drop</div>
-          <div class="welcome-feature-desc">Pick a color, crank the count, and let 'em fly.</div>
+          <div class="welcome-feature-label">Aim</div>
+          <div class="welcome-feature-desc">Drag to aim, set your weight, bounce, and power.</div>
         </div>
       </div>
       <div class="welcome-feature-row">
         <div class="welcome-icon-box">💥</div>
         <div class="welcome-feature-text">
           <div class="welcome-feature-label">Destroy</div>
-          <div class="welcome-feature-desc">Rockets charge up over time. Lasers are instant but overheat. Aim for the marbles!</div>
+          <div class="welcome-feature-desc">Rockets charge up fast. Lasers overheat. Aim for the marbles!</div>
         </div>
       </div>
     </div>
