@@ -21,17 +21,17 @@ export const REST_TIME      = 0.6;
 export const BALL_COUNTS    = [1, 5, 10, 25, 50];
 
 export const ROCKET_SPEED         = 700;
-export const ROCKET_LOCK_DURATION = 15000;
+export const ROCKET_LOCK_DURATION = 5000;
 export const ROCKET_RADIUS        = 14;
 export const ROCKET_FADE_TIME     = 0.5;
 export const ROCKET_LIFESPAN      = 10;
 export const MAGAZINE_CAPACITY    = 3;
-export const MAGAZINE_CHARGE_TIME = 10000;
+export const MAGAZINE_CHARGE_TIME = 5000;
 
-export const LASER_HEAT_PER_SHOT      = 15;
+export const LASER_HEAT_PER_SHOT      = 8;
 export const LASER_HEAT_MAX           = 100;
 export const LASER_HEAT_DECAY         = 8;
-export const LASER_OVERHEAT_COOLDOWN  = 4;
+export const LASER_OVERHEAT_COOLDOWN  = 2;
 export const LASER_FIRE_COOLDOWN      = 0.1;
 export const LASER_BEAM_DURATION      = 0.2;
 
