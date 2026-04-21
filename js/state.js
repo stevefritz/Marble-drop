@@ -29,6 +29,8 @@ export const state = {
   cannonPlaced: false,
   isAimingCannon: false,
   firingSequence: null,
+  showAimHint: false,
+  aimHintTimer: 0,
 
   ballCountIdx: 1,
 

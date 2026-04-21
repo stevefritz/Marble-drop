@@ -208,6 +208,8 @@ export function clearAll() {
     state.cannonPlaced = false;
     state.cannonAngle = -Math.PI / 2;
     state.isAimingCannon = false;
+    state.showAimHint = false;
+    state.aimHintTimer = 0;
     document.getElementById('score-lcd').textContent = '00000';
     setTool('cannon');
   }

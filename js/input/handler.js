@@ -91,14 +91,15 @@ function onStart(x, y) {
     if (state.firingSequence !== null) return;
     if (isNearCannon(x, y)) {
       state.isAimingCannon = true;
+      state.showAimHint = false;
       updateCannonAngle(x, y);
       return;
     }
     const wasPlaced = state.cannonPlaced;
     if (placeCannon(x, y)) {
-      // Auto-switch to wall tool after first placement
       if (!wasPlaced) {
-        setTool('wall');
+        state.showAimHint = true;
+        state.aimHintTimer = 3.0;
       }
     }
     return;
