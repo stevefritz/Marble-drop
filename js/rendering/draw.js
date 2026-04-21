@@ -252,6 +252,9 @@ export function render(ts) {
   updateMagazine();
   updateHeatUI();
 
+  // Tutorial overlays
+  drawTutorialOverlay(ts, rawDt);
+
   // Version watermark
   ctx.save();
   ctx.font = '11px system-ui, sans-serif';
@@ -260,4 +263,125 @@ export function render(ts) {
   ctx.textBaseline = 'bottom';
   ctx.fillText(VERSION, state.canvas.width - 8, state.canvas.height - 8);
   ctx.restore();
+}
+
+function drawTutorialOverlay(ts, dt) {
+  const ctx = state.ctx;
+  const step = state.tutorialStep;
+
+  if (step === 1) {
+    // Pulsing "Tap a dot to place your cannon" text
+    const pulse = 0.6 + 0.4 * Math.sin(ts / 500);
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.font = 'bold 23px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Tap a dot to place your cannon', state.canvas.width / 2, state.canvas.height * 0.28);
+    ctx.restore();
+
+    // Highlight a few grid dots with pulsing rings
+    const ringPulse = 0.3 + 0.5 * Math.sin(ts / 400);
+    ctx.save();
+    ctx.strokeStyle = `rgba(74, 172, 255, ${ringPulse})`;
+    ctx.lineWidth = 2;
+    const centerX = state.canvas.width / 2;
+    const centerY = state.canvas.height / 2;
+    let count = 0;
+    for (const d of state.dots) {
+      const dist = Math.hypot(d.x - centerX, d.y - centerY);
+      if (dist < state.gridSpacing * 3 && count < 9) {
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, 8 + 4 * Math.sin(ts / 600 + d.x), 0, Math.PI * 2);
+        ctx.stroke();
+        count++;
+      }
+    }
+    ctx.restore();
+  }
+
+  if (step === 2 && state.cannonPos) {
+    // "Drag to aim" text near cannon
+    const pulse = 0.6 + 0.4 * Math.sin(ts / 500);
+    const { x, y } = state.cannonPos;
+    const onRight = x < state.canvas.width / 2;
+    const textX = onRight ? x + 70 : x - 70;
+    const textY = y - 30;
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.font = 'bold 19px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Drag to aim', textX, textY);
+
+    // Arrow pointing toward cannon
+    const arrowStartX = onRight ? textX - 30 : textX + 30;
+    const arrowEndX = onRight ? x + 20 : x - 20;
+    const arrowEndY = y - 10;
+    ctx.strokeStyle = `rgba(74, 172, 255, ${pulse})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(arrowStartX, textY + 5);
+    ctx.lineTo(arrowEndX, arrowEndY);
+    ctx.stroke();
+    // Arrowhead
+    const angle = Math.atan2(arrowEndY - (textY + 5), arrowEndX - arrowStartX);
+    ctx.beginPath();
+    ctx.moveTo(arrowEndX, arrowEndY);
+    ctx.lineTo(arrowEndX - 8 * Math.cos(angle - 0.4), arrowEndY - 8 * Math.sin(angle - 0.4));
+    ctx.moveTo(arrowEndX, arrowEndY);
+    ctx.lineTo(arrowEndX - 8 * Math.cos(angle + 0.4), arrowEndY - 8 * Math.sin(angle + 0.4));
+    ctx.stroke();
+
+    // Pulsing arc showing aim range
+    const arcPulse = 0.15 + 0.15 * Math.sin(ts / 600);
+    ctx.strokeStyle = `rgba(74, 172, 255, ${arcPulse})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(x, y, 45, -Math.PI, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
+  // Toast: "Build some obstacles, then FIRE!"
+  if (state.tutorialToast > 0) {
+    state.tutorialToast -= dt;
+    if (state.tutorialToast < 0) state.tutorialToast = 0;
+
+    const alpha = Math.min(1.0, state.tutorialToast / 0.5);
+    const text = 'Build some obstacles, then FIRE!';
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const metrics = ctx.measureText(text);
+    const padX = 16;
+    const padY = 10;
+    const pillW = metrics.width + padX * 2;
+    const pillH = 16 + padY * 2;
+    const cx = state.canvas.width / 2;
+    const cy = state.canvas.height * 0.18;
+
+    ctx.fillStyle = 'rgba(22, 33, 62, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(cx - pillW / 2, cy - pillH / 2, pillW, pillH, pillH / 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(text, cx, cy);
+    ctx.restore();
+  }
 }

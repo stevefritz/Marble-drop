@@ -7,6 +7,7 @@ import {
 } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
 import { snapToDot } from '../engine/grid.js';
+import { applyTutorialLock } from '../ui/buttons.js';
 
 export function computeBallColor(weight, bounce) {
   const w = weight / 100;
@@ -36,6 +37,7 @@ export function setBallBounce(v) {
 }
 
 export function setTool(tool) {
+  if (state.tutorialStep !== 0) return;
   state.currentTool = tool;
 
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -130,6 +132,7 @@ function spawnOneBall() {
 }
 
 export function dropBalls() {
+  if (state.tutorialStep !== 0) return;
   if (!state.cannonPlaced || !state.cannonPos) return;
   if (state.balls.length >= CONFIG.MAX_BALLS) return;
 
@@ -211,6 +214,13 @@ export function clearAll() {
     state.showAimHint = false;
     state.aimHintTimer = 0;
     document.getElementById('score-lcd').textContent = '00000';
-    setTool('cannon');
+    // Restart tutorial since cannon is gone
+    state.tutorialStep = 1;
+    state.currentTool = 'cannon';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-cannon').classList.add('active');
+    document.querySelectorAll('.weapon-btn').forEach(b => b.classList.remove('active', 'laser-weapon-active'));
+    document.getElementById('heat-wrap').style.display = 'none';
+    applyTutorialLock();
   }
 }
