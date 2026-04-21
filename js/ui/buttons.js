@@ -2,7 +2,7 @@
 'use strict';
 
 import {
-  setTool, setLineColor, setBallWeight, setBallBounce, setCannonPower,
+  setTool, setLineColor, setBallWeight, setBallBounce,
   changeBallCount, dropBalls, clearAll, toggleSound, updateColorSwatch
 } from '../input/tools.js';
 
@@ -10,7 +10,6 @@ export function setupButtons() {
   // Ball property sliders
   document.getElementById('slider-weight').addEventListener('input', (e) => setBallWeight(e.target.value));
   document.getElementById('slider-bounce').addEventListener('input', (e) => setBallBounce(e.target.value));
-  document.getElementById('slider-power').addEventListener('input',  (e) => setCannonPower(e.target.value));
 
   // Ball count buttons
   document.getElementById('btn-count-minus').addEventListener('click', () => changeBallCount(-1));
@@ -27,6 +26,7 @@ export function setupButtons() {
   document.getElementById('drop-btn').addEventListener('click', () => dropBalls());
 
   // Tool palette
+  document.getElementById('btn-cannon').addEventListener('click', () => setTool('cannon'));
   document.getElementById('btn-wall').addEventListener('click',   () => setTool('wall'));
   document.getElementById('btn-curve').addEventListener('click',  () => setTool('curve'));
   document.getElementById('btn-peg').addEventListener('click',    () => setTool('peg'));

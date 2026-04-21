@@ -18,17 +18,17 @@ export const state = {
 
   score: 0,
 
-  currentTool: 'wall',
+  currentTool: 'cannon',
   currentLineColor: '#FFFFFF',
 
   ballWeight: 30,
   ballBounce: 60,
-  cannonPower: 50,
 
   cannonPos: null,
   cannonAngle: -Math.PI / 2,
   cannonPlaced: false,
   isAimingCannon: false,
+  firingSequence: null,
 
   ballCountIdx: 1,
 
