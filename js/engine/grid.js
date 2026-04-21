@@ -2,7 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import { SNAP_RADIUS } from '../config.js';
+import { CONFIG } from '../config.js';
 
 export function setupGrid() {
   const padX = 12;
@@ -25,7 +25,7 @@ export function setupGrid() {
 }
 
 export function snapToDot(x, y) {
-  const snapR = Math.min(SNAP_RADIUS, state.gridSpacing * 0.5);
+  const snapR = Math.min(CONFIG.SNAP_RADIUS, state.gridSpacing * 0.5);
   let best = null, bestDist = snapR;
   for (const d of state.dots) {
     const dist = Math.hypot(d.x - x, d.y - y);

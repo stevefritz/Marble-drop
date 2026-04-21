@@ -2,10 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import {
-  DOT_RADIUS, WALL_HALF_W, PEG_RADIUS, HANDLE_RADIUS,
-  FLASH_DURATION, FIXED_DT, VERSION
-} from '../config.js';
+import { CONFIG, VERSION } from '../config.js';
 import { lighten, darken } from '../utils/color.js';
 import { updatePhysics } from '../engine/physics.js';
 import { drawGhost, drawRocketParticles, drawSteamParticles } from './effects.js';
@@ -18,7 +15,7 @@ function drawGrid() {
   ctx.fillStyle = 'rgba(90, 115, 170, 0.38)';
   for (const d of state.dots) {
     ctx.beginPath();
-    ctx.arc(d.x, d.y, DOT_RADIUS, 0, Math.PI*2);
+    ctx.arc(d.x, d.y, CONFIG.DOT_RADIUS, 0, Math.PI*2);
     ctx.fill();
   }
 }
@@ -26,9 +23,9 @@ function drawGrid() {
 function drawWalls() {
   const ctx = state.ctx;
   ctx.lineCap = 'round';
-  ctx.lineWidth = WALL_HALF_W * 2;
+  ctx.lineWidth = CONFIG.WALL_HALF_W * 2;
   for (const w of state.walls) {
-    const flash = Math.max(0, w.flashTimer || 0) / FLASH_DURATION;
+    const flash = Math.max(0, w.flashTimer || 0) / CONFIG.FLASH_DURATION;
     ctx.save();
     if (flash > 0) {
       ctx.strokeStyle = '#FFFACC';
@@ -52,7 +49,7 @@ function drawCurves() {
   const ctx = state.ctx;
   const showHandles = state.currentTool === 'curve' || state.currentTool === 'eraser';
   for (const c of state.curves) {
-    const flash = Math.max(0, c.flashTimer || 0) / FLASH_DURATION;
+    const flash = Math.max(0, c.flashTimer || 0) / CONFIG.FLASH_DURATION;
     ctx.save();
     if (flash > 0) {
       ctx.strokeStyle = '#CCFFFF';
@@ -64,7 +61,7 @@ function drawCurves() {
       ctx.shadowColor = cColor + '59';
       ctx.shadowBlur = 5;
     }
-    ctx.lineWidth = WALL_HALF_W * 2;
+    ctx.lineWidth = CONFIG.WALL_HALF_W * 2;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(c.ax, c.ay);
@@ -86,7 +83,7 @@ function drawCurves() {
       ctx.restore();
 
       ctx.beginPath();
-      ctx.arc(c.cx, c.cy, HANDLE_RADIUS, 0, Math.PI*2);
+      ctx.arc(c.cx, c.cy, CONFIG.HANDLE_RADIUS, 0, Math.PI*2);
       ctx.fillStyle = cColor;
       ctx.fill();
       ctx.strokeStyle = 'white';
@@ -101,7 +98,7 @@ function drawPegs() {
   for (const peg of state.pegs) {
     const pulse = Math.max(0, peg.pulseTimer);
     const extra = pulse > 0 ? Math.sin((pulse / 0.35) * Math.PI) * 7 : 0;
-    const r = PEG_RADIUS + extra;
+    const r = CONFIG.PEG_RADIUS + extra;
 
     const pegColor = peg.color || null;
     const baseLight = pegColor ? lighten(pegColor, pulse > 0 ? 60 : 40) : (pulse > 0 ? '#FFE040' : '#FFC820');
@@ -181,9 +178,9 @@ export function render(ts) {
   state.lastTimestamp = ts;
   state.physicsAccum += rawDt;
 
-  while (state.physicsAccum >= FIXED_DT) {
-    updatePhysics(FIXED_DT);
-    state.physicsAccum -= FIXED_DT;
+  while (state.physicsAccum >= CONFIG.FIXED_DT) {
+    updatePhysics(CONFIG.FIXED_DT);
+    state.physicsAccum -= CONFIG.FIXED_DT;
   }
 
   const ctx = state.ctx;

@@ -2,7 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import { ROCKET_RADIUS } from '../config.js';
+import { CONFIG } from '../config.js';
 
 function drawRocketTurretShape(ctx, active) {
   const baseW = 54, baseH = 14;

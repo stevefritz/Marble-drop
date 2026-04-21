@@ -2,7 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import { DOT_RADIUS, WALL_HALF_W, GRAVITY } from '../config.js';
+import { CONFIG } from '../config.js';
 import { parseHex } from '../utils/color.js';
 import { snapToDot } from '../engine/grid.js';
 
@@ -17,7 +17,7 @@ export function drawGhost() {
   ctx.save();
   ctx.setLineDash([9, 8]);
   ctx.lineCap = 'round';
-  ctx.lineWidth = WALL_HALF_W * 2;
+  ctx.lineWidth = CONFIG.WALL_HALF_W * 2;
   ctx.strokeStyle = `rgba(${gr},${gg},${gb},0.55)`;
   ctx.beginPath();
   ctx.moveTo(state.drawStart.x, state.drawStart.y);
@@ -27,11 +27,11 @@ export function drawGhost() {
 
   const hlColor = `rgba(${gr},${gg},${gb},0.85)`;
   ctx.beginPath();
-  ctx.arc(state.drawStart.x, state.drawStart.y, DOT_RADIUS + 5, 0, Math.PI*2);
+  ctx.arc(state.drawStart.x, state.drawStart.y, CONFIG.DOT_RADIUS + 5, 0, Math.PI*2);
   ctx.fillStyle = hlColor; ctx.fill();
   if (snapEnd) {
     ctx.beginPath();
-    ctx.arc(snapEnd.x, snapEnd.y, DOT_RADIUS + 5, 0, Math.PI*2);
+    ctx.arc(snapEnd.x, snapEnd.y, CONFIG.DOT_RADIUS + 5, 0, Math.PI*2);
     ctx.fillStyle = hlColor; ctx.fill();
   }
 }
@@ -123,7 +123,7 @@ export function updateParticles(dt) {
     const p = state.rocketParticles[i];
     p.x  += p.vx * dt;
     p.y  += p.vy * dt;
-    p.vy += GRAVITY * 0.25 * dt;
+    p.vy += CONFIG.GRAVITY * 0.25 * dt;
     p.life -= dt;
     if (p.life <= 0) state.rocketParticles.splice(i, 1);
   }

@@ -3,6 +3,7 @@
 
 import { state } from './state.js';
 import { BALL_COUNTS } from './config.js';
+import { initDebugPanel } from './ui/debug.js';
 import { setupGrid } from './engine/grid.js';
 import { setupInput } from './input/handler.js';
 import { setupButtons } from './ui/buttons.js';
@@ -39,6 +40,7 @@ function init() {
   }
 
   document.getElementById('count-display').textContent = BALL_COUNTS[state.ballCountIdx];
+  initDebugPanel();
 
   state.lastTimestamp = performance.now();
   state.firstDropTime = performance.now();

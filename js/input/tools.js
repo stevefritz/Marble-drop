@@ -3,7 +3,7 @@
 
 import { state } from '../state.js';
 import {
-  BALL_COUNTS, MAX_BALLS, LINE_COLORS
+  CONFIG, BALL_COUNTS, LINE_COLORS
 } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
 import { snapToDot } from '../engine/grid.js';
@@ -78,11 +78,9 @@ export function placeCannon(x, y) {
   return true;
 }
 
-const CANNON_BASE_SPEED = 450;
-
 function spawnOneBall() {
   if (!state.cannonPlaced || !state.cannonPos) return;
-  if (state.balls.length >= MAX_BALLS) return;
+  if (state.balls.length >= CONFIG.MAX_BALLS) return;
 
   const weight = state.ballWeight;
   const bounce = state.ballBounce;
@@ -103,13 +101,18 @@ function spawnOneBall() {
   const jitterAngle = (Math.random() - 0.5) * (6 * Math.PI / 180);
   const angle = state.cannonAngle + jitterAngle;
 
-  const vx = Math.cos(angle) * CANNON_BASE_SPEED;
-  const vy = Math.sin(angle) * CANNON_BASE_SPEED;
+  const vx = Math.cos(angle) * CONFIG.CANNON_BASE_SPEED;
+  const vy = Math.sin(angle) * CONFIG.CANNON_BASE_SPEED;
+
+  // Spawn at barrel tip, not cannon base
+  const tipOffset = 40;
+  const spawnX = state.cannonPos.x + Math.cos(state.cannonAngle) * tipOffset;
+  const spawnY = state.cannonPos.y + Math.sin(state.cannonAngle) * tipOffset;
 
   state.balls.push({
     id: state.nextBallId++,
-    x: state.cannonPos.x,
-    y: state.cannonPos.y,
+    x: spawnX,
+    y: spawnY,
     vx,
     vy,
     props,
@@ -128,7 +131,7 @@ function spawnOneBall() {
 
 export function dropBalls() {
   if (!state.cannonPlaced || !state.cannonPos) return;
-  if (state.balls.length >= MAX_BALLS) return;
+  if (state.balls.length >= CONFIG.MAX_BALLS) return;
 
   // Cancel any active firing sequence and start fresh
   if (state.firingSequence !== null) {
@@ -160,7 +163,7 @@ export function dropBalls() {
 
   // Fire remaining balls at 200ms intervals (5/sec)
   state.firingSequence = setInterval(() => {
-    if (fired >= total || state.balls.length >= MAX_BALLS) {
+    if (fired >= total || state.balls.length >= CONFIG.MAX_BALLS) {
       clearInterval(state.firingSequence);
       state.firingSequence = null;
       return;
@@ -171,7 +174,7 @@ export function dropBalls() {
       clearInterval(state.firingSequence);
       state.firingSequence = null;
     }
-  }, 200);
+  }, CONFIG.CANNON_FIRE_RATE);
 }
 
 export function toggleSound() {

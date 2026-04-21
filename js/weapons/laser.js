@@ -2,10 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import {
-  LASER_HEAT_PER_SHOT, LASER_HEAT_MAX, LASER_OVERHEAT_COOLDOWN,
-  LASER_FIRE_COOLDOWN, LASER_BEAM_DURATION
-} from '../config.js';
+import { CONFIG } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
 import { distToSeg } from '../utils/math.js';
 import { spawnAbsorptionBurst, spawnSteamParticles } from '../rendering/effects.js';
@@ -15,7 +12,7 @@ export function tryFireLaser(tx, ty) {
   if (state.laserOverheated) return;
 
   const now = performance.now() / 1000;
-  if (now - state.lastLaserFireTime < LASER_FIRE_COOLDOWN) return;
+  if (now - state.lastLaserFireTime < CONFIG.LASER_FIRE_COOLDOWN) return;
   state.lastLaserFireTime = now;
 
   const sx = state.canvas.width / 2;
@@ -37,13 +34,13 @@ export function tryFireLaser(tx, ty) {
   const ey = sy + tMin * dy;
 
   const prevHeat = state.laserHeat;
-  state.laserHeat += LASER_HEAT_PER_SHOT;
-  const wasWarning = prevHeat >= LASER_HEAT_MAX * 0.75;
+  state.laserHeat += CONFIG.LASER_HEAT_PER_SHOT;
+  const wasWarning = prevHeat >= CONFIG.LASER_HEAT_MAX * 0.75;
 
-  if (state.laserHeat >= LASER_HEAT_MAX) {
-    state.laserHeat = LASER_HEAT_MAX;
+  if (state.laserHeat >= CONFIG.LASER_HEAT_MAX) {
+    state.laserHeat = CONFIG.LASER_HEAT_MAX;
     state.laserOverheated = true;
-    state.laserOverheatTimer = LASER_OVERHEAT_COOLDOWN;
+    state.laserOverheatTimer = CONFIG.LASER_OVERHEAT_COOLDOWN;
     soundEngine.playOverheatTriggered();
     spawnSteamParticles(sx, sy);
   } else {
@@ -67,5 +64,5 @@ export function tryFireLaser(tx, ty) {
     addScore(10);
   }
 
-  state.laserBeam = { x1: sx, y1: sy, x2: ex, y2: ey, alpha: 1.0, timer: LASER_BEAM_DURATION };
+  state.laserBeam = { x1: sx, y1: sy, x2: ex, y2: ey, alpha: 1.0, timer: CONFIG.LASER_BEAM_DURATION };
 }
