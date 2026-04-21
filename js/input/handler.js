@@ -87,6 +87,8 @@ function onStart(x, y) {
 
   // Cannon tool: placement and aiming only, no drawing
   if (state.currentTool === 'cannon') {
+    // Lock cannon during firing sequence
+    if (state.firingSequence !== null) return;
     if (isNearCannon(x, y)) {
       state.isAimingCannon = true;
       updateCannonAngle(x, y);
@@ -141,6 +143,11 @@ function onStart(x, y) {
 
 function onMove(x, y) {
   if (state.isAimingCannon) {
+    // Stop aiming if firing sequence started mid-drag
+    if (state.firingSequence !== null) {
+      state.isAimingCannon = false;
+      return;
+    }
     updateCannonAngle(x, y);
     return;
   }

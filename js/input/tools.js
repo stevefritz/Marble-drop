@@ -136,6 +136,9 @@ export function dropBalls() {
     state.firingSequence = null;
   }
 
+  // Lock cannon — stop any in-progress aiming
+  state.isAimingCannon = false;
+
   if (!state.firstDropTime) {
     state.firstDropTime = performance.now();
     state.chargeStart = state.firstDropTime;
