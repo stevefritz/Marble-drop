@@ -2,7 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import { ROCKET_SPEED } from '../config.js';
+import { CONFIG } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
 import { flashMagazineEmpty } from '../rendering/hud.js';
 
@@ -29,8 +29,8 @@ export function tryFireRocket(tx, ty) {
 
   state.rockets.push({
     x: sx, y: sy,
-    vx: (dx / len) * ROCKET_SPEED,
-    vy: (dy / len) * ROCKET_SPEED,
+    vx: (dx / len) * CONFIG.ROCKET_SPEED,
+    vy: (dy / len) * CONFIG.ROCKET_SPEED,
     trail: [],
     opacity: 1.0,
     fading: false,

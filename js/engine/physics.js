@@ -2,12 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import {
-  GRAVITY, PEG_RADIUS, BUMPER_FACTOR_WALL, BUMPER_FACTOR_CURVE, BUMPER_FACTOR_PEG,
-  CURVE_TANG_BOOST, MAX_BALL_SPEED, REST_SPEED, REST_TIME, FADE_DURATION,
-  ROCKET_RADIUS, ROCKET_FADE_TIME, ROCKET_LIFESPAN,
-  LASER_HEAT_DECAY, LASER_BEAM_DURATION
-} from '../config.js';
+import { CONFIG } from '../config.js';
 import { reflectSeg } from './collision.js';
 import { sampleCurve } from '../utils/math.js';
 import { soundEngine } from '../audio/sound.js';
@@ -24,7 +19,7 @@ export function updatePhysics(dt) {
 
     if (b.atRest) {
       b.fadeTimer += dt;
-      b.opacity = Math.max(0, 1.0 - b.fadeTimer / FADE_DURATION);
+      b.opacity = Math.max(0, 1.0 - b.fadeTimer / CONFIG.FADE_DURATION);
       if (b.opacity <= 0) { state.balls.splice(i, 1); }
       continue;
     }
@@ -46,9 +41,9 @@ export function updatePhysics(dt) {
 
     b.age += dt;
     const ageFactor    = 1 + (b.age / 60) * 0.5;
-    const agedWallBoost  = 1 + (BUMPER_FACTOR_WALL  - 1) / ageFactor;
-    const agedCurveBoost = 1 + (BUMPER_FACTOR_CURVE - 1) / ageFactor;
-    const agedPegBoost   = 1 + (BUMPER_FACTOR_PEG   - 1) / ageFactor;
+    const agedWallBoost  = 1 + (CONFIG.BUMPER_FACTOR_WALL  - 1) / ageFactor;
+    const agedCurveBoost = 1 + (CONFIG.BUMPER_FACTOR_CURVE - 1) / ageFactor;
+    const agedPegBoost   = 1 + (CONFIG.BUMPER_FACTOR_PEG   - 1) / ageFactor;
 
     b.trail.push({ x: b.x, y: b.y });
     if (b.trail.length > 6) b.trail.shift();
@@ -60,7 +55,7 @@ export function updatePhysics(dt) {
     const subDt = dt / substeps;
 
     for (let sub = 0; sub < substeps; sub++) {
-      b.vy += GRAVITY * subDt;
+      b.vy += CONFIG.GRAVITY * subDt;
       b.x += b.vx * subDt;
       b.y += b.vy * subDt;
 
@@ -69,7 +64,7 @@ export function updatePhysics(dt) {
       let curveHitThisFrame = false;
       for (const c of state.curves) {
         for (const s of sampleCurve(c, 20)) {
-          if (reflectSeg(b, s.ax, s.ay, s.bx, s.by, agedCurveBoost, c, CURVE_TANG_BOOST) && !curveHitThisFrame) {
+          if (reflectSeg(b, s.ax, s.ay, s.bx, s.by, agedCurveBoost, c, CONFIG.CURVE_TANG_BOOST) && !curveHitThisFrame) {
             if (Math.hypot(b.vx, b.vy) > 60) soundEngine.playCurveHit();
             curveHitThisFrame = true;
           }
@@ -79,7 +74,7 @@ export function updatePhysics(dt) {
       for (const peg of state.pegs) {
         const pdx = b.x - peg.x, pdy = b.y - peg.y;
         const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
-        const pminD = b.props.radius + PEG_RADIUS;
+        const pminD = b.props.radius + CONFIG.PEG_RADIUS;
         if (pdist < pminD && pdist > 0.001) {
           const pnx = pdx/pdist, pny = pdy/pdist;
           b.x += pnx * (pminD - pdist);
@@ -93,7 +88,7 @@ export function updatePhysics(dt) {
             b.vx *= agedPegBoost;
             b.vy *= agedPegBoost;
             const ps = Math.hypot(b.vx, b.vy);
-            if (ps > MAX_BALL_SPEED) { b.vx *= MAX_BALL_SPEED/ps; b.vy *= MAX_BALL_SPEED/ps; }
+            if (ps > CONFIG.MAX_BALL_SPEED) { b.vx *= CONFIG.MAX_BALL_SPEED/ps; b.vy *= CONFIG.MAX_BALL_SPEED/ps; }
             const ang = (Math.random()-0.5) * (16 * Math.PI/180);
             const cos = Math.cos(ang), sin = Math.sin(ang);
             const nvx = b.vx*cos - b.vy*sin;
@@ -128,9 +123,9 @@ export function updatePhysics(dt) {
     if (b.y > H + 120) { state.balls.splice(i, 1); continue; }
 
     const speed = Math.hypot(b.vx, b.vy);
-    if (speed < REST_SPEED) {
+    if (speed < CONFIG.REST_SPEED) {
       b.restTimer += dt;
-      if (b.restTimer > REST_TIME) {
+      if (b.restTimer > CONFIG.REST_TIME) {
         if (!b.atRest && !b.fading) soundEngine.playRest();
         b.atRest = true;
         b.vx = 0; b.vy = 0;
@@ -201,16 +196,16 @@ export function updatePhysics(dt) {
 
     if (r.fading) {
       r.fadeTimer += dt;
-      r.opacity = Math.max(0, 1.0 - r.fadeTimer / ROCKET_FADE_TIME);
+      r.opacity = Math.max(0, 1.0 - r.fadeTimer / CONFIG.ROCKET_FADE_TIME);
       if (r.opacity <= 0) state.rockets.splice(ri, 1);
     } else {
       r.age += dt;
-      if (r.age >= ROCKET_LIFESPAN) {
+      if (r.age >= CONFIG.ROCKET_LIFESPAN) {
         r.fading = true;
         r.fadeTimer = 0;
         continue;
       }
-      const WARN_START = ROCKET_LIFESPAN - 3;
+      const WARN_START = CONFIG.ROCKET_LIFESPAN - 3;
       if (r.age >= WARN_START) {
         const t = (r.age - WARN_START) / 3;
         r.opacity = 1.0 - t * 0.6;
@@ -221,7 +216,7 @@ export function updatePhysics(dt) {
       r.x += r.vx * dt;
       r.y += r.vy * dt;
 
-      const rr = ROCKET_RADIUS;
+      const rr = CONFIG.ROCKET_RADIUS;
       if (r.x - rr < 0)       { r.x = rr;     r.vx =  Math.abs(r.vx); }
       else if (r.x + rr > W)  { r.x = W - rr; r.vx = -Math.abs(r.vx); }
       if (r.y - rr < 0)       { r.y = rr;     r.vy =  Math.abs(r.vy); }
@@ -230,7 +225,7 @@ export function updatePhysics(dt) {
       for (let i = state.balls.length - 1; i >= 0; i--) {
         const b = state.balls[i];
         if (b.gcFading) continue;
-        if (Math.hypot(r.x - b.x, r.y - b.y) < ROCKET_RADIUS + b.props.radius) {
+        if (Math.hypot(r.x - b.x, r.y - b.y) < CONFIG.ROCKET_RADIUS + b.props.radius) {
           spawnAbsorptionBurst(b.x, b.y, b.props.color);
           soundEngine.playRocketAbsorb(b.props.color);
           state.balls.splice(i, 1);
@@ -254,13 +249,13 @@ export function updatePhysics(dt) {
       state.laserSteamParticles = [];
     }
   } else if (state.laserHeat > 0) {
-    state.laserHeat = Math.max(0, state.laserHeat - LASER_HEAT_DECAY * dt);
+    state.laserHeat = Math.max(0, state.laserHeat - CONFIG.LASER_HEAT_DECAY * dt);
   }
 
   // Laser beam fade
   if (state.laserBeam) {
     state.laserBeam.timer -= dt;
-    state.laserBeam.alpha = Math.max(0, state.laserBeam.timer / LASER_BEAM_DURATION);
+    state.laserBeam.alpha = Math.max(0, state.laserBeam.timer / CONFIG.LASER_BEAM_DURATION);
     if (state.laserBeam.timer <= 0) state.laserBeam = null;
   }
 

@@ -2,7 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import { PEG_RADIUS, WALL_HALF_W, HANDLE_RADIUS } from '../config.js';
+import { CONFIG } from '../config.js';
 import { snapToDot } from '../engine/grid.js';
 import { distToSeg, distToCurve } from '../utils/math.js';
 import { tryFireRocket } from '../weapons/rocket.js';
@@ -33,20 +33,20 @@ function eraseAt(x, y) {
   const ED = 24;
 
   for (let i = state.pegs.length - 1; i >= 0; i--) {
-    if (Math.hypot(state.pegs[i].x - x, state.pegs[i].y - y) < PEG_RADIUS + ED) {
+    if (Math.hypot(state.pegs[i].x - x, state.pegs[i].y - y) < CONFIG.PEG_RADIUS + ED) {
       state.pegs.splice(i, 1); return;
     }
   }
   for (let i = state.curves.length - 1; i >= 0; i--) {
     const c = state.curves[i];
-    if (distToCurve(x, y, c) < WALL_HALF_W + ED ||
-        Math.hypot(c.cx - x, c.cy - y) < HANDLE_RADIUS + ED) {
+    if (distToCurve(x, y, c) < CONFIG.WALL_HALF_W + ED ||
+        Math.hypot(c.cx - x, c.cy - y) < CONFIG.HANDLE_RADIUS + ED) {
       state.curves.splice(i, 1); return;
     }
   }
   for (let i = state.walls.length - 1; i >= 0; i--) {
     const w = state.walls[i];
-    if (distToSeg(x, y, w.ax, w.ay, w.bx, w.by) < WALL_HALF_W + ED) {
+    if (distToSeg(x, y, w.ax, w.ay, w.bx, w.by) < CONFIG.WALL_HALF_W + ED) {
       state.walls.splice(i, 1); return;
     }
   }
@@ -123,7 +123,7 @@ function onStart(x, y) {
 
   if (state.currentTool === 'curve') {
     for (const c of state.curves) {
-      if (Math.hypot(c.cx - x, c.cy - y) <= HANDLE_RADIUS + 12) {
+      if (Math.hypot(c.cx - x, c.cy - y) <= CONFIG.HANDLE_RADIUS + 12) {
         state.editingCurve = c;
         return;
       }

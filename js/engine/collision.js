@@ -1,14 +1,14 @@
 // collision.js — segment reflection for ball-wall/curve collisions
 'use strict';
 
-import { WALL_HALF_W, MAX_BALL_SPEED, FLASH_DURATION } from '../config.js';
+import { CONFIG } from '../config.js';
 import { closestPtOnSeg } from '../utils/math.js';
 
 export function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tangBoost) {
   const cp = closestPtOnSeg(ball.x, ball.y, ax, ay, bx, by);
   const dx = ball.x - cp.x, dy = ball.y - cp.y;
   const dist = Math.sqrt(dx*dx + dy*dy);
-  const minD = ball.props.radius + WALL_HALF_W;
+  const minD = ball.props.radius + CONFIG.WALL_HALF_W;
   if (dist >= minD || dist < 0.001) return false;
 
   const nx = dx/dist, ny = dy/dist;
@@ -34,11 +34,11 @@ export function reflectSeg(ball, ax, ay, bx, by, bumperFactor, flashTarget, tang
       ball.vy += ty * dir * tangBoost;
     }
     const spd = Math.hypot(ball.vx, ball.vy);
-    if (spd > MAX_BALL_SPEED) {
-      const sc = MAX_BALL_SPEED / spd;
+    if (spd > CONFIG.MAX_BALL_SPEED) {
+      const sc = CONFIG.MAX_BALL_SPEED / spd;
       ball.vx *= sc; ball.vy *= sc;
     }
-    if (flashTarget) flashTarget.flashTimer = FLASH_DURATION;
+    if (flashTarget) flashTarget.flashTimer = CONFIG.FLASH_DURATION;
   }
   return true;
 }

@@ -2,10 +2,7 @@
 'use strict';
 
 import { state } from '../state.js';
-import {
-  MAGAZINE_CAPACITY, ROCKET_LOCK_DURATION, MAGAZINE_CHARGE_TIME,
-  LASER_HEAT_MAX
-} from '../config.js';
+import { CONFIG } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
 
 export function addScore(pts) {
@@ -19,7 +16,7 @@ export function addScore(pts) {
 }
 
 export function flashMagazineEmpty() {
-  for (let i = 0; i < MAGAZINE_CAPACITY; i++) {
+  for (let i = 0; i < CONFIG.MAGAZINE_CAPACITY; i++) {
     const slot = document.getElementById('mag-' + i);
     if (!slot) continue;
     slot.classList.remove('empty-flash');
@@ -32,14 +29,14 @@ export function flashMagazineEmpty() {
 export function updateMagazine() {
   const now = performance.now();
 
-  if (state.firstDropTime && state.chargeStart !== null && state.magazineCount < MAGAZINE_CAPACITY) {
-    const chargeTime = state.isFirstCharge ? ROCKET_LOCK_DURATION : MAGAZINE_CHARGE_TIME;
+  if (state.firstDropTime && state.chargeStart !== null && state.magazineCount < CONFIG.MAGAZINE_CAPACITY) {
+    const chargeTime = state.isFirstCharge ? CONFIG.ROCKET_LOCK_DURATION : CONFIG.MAGAZINE_CHARGE_TIME;
     const elapsed = now - state.chargeStart;
     if (elapsed >= chargeTime) {
       state.magazineCount++;
       state.isFirstCharge = false;
       soundEngine.playMagazineLoad();
-      if (state.magazineCount < MAGAZINE_CAPACITY) {
+      if (state.magazineCount < CONFIG.MAGAZINE_CAPACITY) {
         state.chargeStart = now;
       } else {
         state.chargeStart = null;
@@ -48,12 +45,12 @@ export function updateMagazine() {
   }
 
 
-  const chargeTime = state.isFirstCharge ? ROCKET_LOCK_DURATION : MAGAZINE_CHARGE_TIME;
+  const chargeTime = state.isFirstCharge ? CONFIG.ROCKET_LOCK_DURATION : CONFIG.MAGAZINE_CHARGE_TIME;
   const chargePct  = (state.firstDropTime && state.chargeStart !== null)
     ? Math.min(1, (now - state.chargeStart) / chargeTime)
     : 0;
 
-  for (let i = 0; i < MAGAZINE_CAPACITY; i++) {
+  for (let i = 0; i < CONFIG.MAGAZINE_CAPACITY; i++) {
     const slot = document.getElementById('mag-' + i);
     const fill = document.getElementById('mag-fill-' + i);
     if (!slot || !fill) continue;
@@ -78,7 +75,7 @@ export function updateHeatUI() {
   const heatLabel = document.getElementById('heat-label-text');
   if (!heatBar) return;
 
-  const pct = state.laserHeat / LASER_HEAT_MAX;
+  const pct = state.laserHeat / CONFIG.LASER_HEAT_MAX;
   heatBar.style.width = `${pct * 100}%`;
 
   let color, labelText;
