@@ -514,6 +514,22 @@ html, body {
   letter-spacing: 1px;
 }
 
+/* ===== TUTORIAL LOCK ===== */
+.tutorial-locked {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+#drop-btn.tutorial-locked {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+#hopper-bar.tutorial-locked {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 /* ===== WELCOME MODAL ===== */
 #welcome-overlay {
   display: none;
@@ -826,6 +842,7 @@ html, body {
   document.getElementById('welcome-overlay').style.display = 'flex';
   document.getElementById('welcome-ok-btn').addEventListener('click', function () {
     document.getElementById('welcome-overlay').style.display = 'none';
+    document.dispatchEvent(new CustomEvent('tutorial-start'));
   });
 }());
 </script>

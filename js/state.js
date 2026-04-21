@@ -58,4 +58,8 @@ export const state = {
   laserBeam: null,
   laserSteamParticles: [],
   turretAngle: Math.PI / 2,
+
+  // Tutorial state: 0=inactive/complete, 1=place cannon, 2=aim cannon
+  tutorialStep: 0,
+  tutorialToast: 0,
 };

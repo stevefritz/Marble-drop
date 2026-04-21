@@ -8,6 +8,7 @@ import { distToSeg, distToCurve } from '../utils/math.js';
 import { tryFireRocket } from '../weapons/rocket.js';
 import { tryFireLaser } from '../weapons/laser.js';
 import { placeCannon, setTool } from '../input/tools.js';
+import { removeTutorialLock } from '../ui/buttons.js';
 
 const CANNON_AIM_RADIUS = 50;
 
@@ -76,6 +77,22 @@ function updateCannonAngle(x, y) {
 }
 
 function onStart(x, y) {
+  // Tutorial step 1: only cannon placement allowed
+  if (state.tutorialStep === 1) {
+    if (placeCannon(x, y)) {
+      state.tutorialStep = 2;
+    }
+    return;
+  }
+  // Tutorial step 2: only cannon aiming allowed
+  if (state.tutorialStep === 2) {
+    if (isNearCannon(x, y)) {
+      state.isAimingCannon = true;
+      updateCannonAngle(x, y);
+    }
+    return;
+  }
+
   if (state.currentTool === 'rocket') {
     tryFireRocket(x, y);
     return;
@@ -165,7 +182,16 @@ function onMove(x, y) {
 function onEnd(x, y) {
   if (state.isAimingCannon) {
     updateCannonAngle(x, y);
+    const wasTutorialAim = state.tutorialStep === 2;
     state.isAimingCannon = false;
+    if (wasTutorialAim) {
+      // Tutorial complete — unlock everything
+      state.tutorialStep = 0;
+      state.tutorialToast = 3.0;
+      removeTutorialLock();
+      // Auto-switch to wall tool (bypass guard since tutorialStep is now 0)
+      setTool('wall');
+    }
     return;
   }
   if (state.editingCurve) { state.editingCurve = null; return; }

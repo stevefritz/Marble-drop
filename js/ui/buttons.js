@@ -1,10 +1,23 @@
 // buttons.js — wire up all HTML button event listeners (replaces inline onclick)
 'use strict';
 
+import { state } from '../state.js';
 import {
   setTool, setLineColor, setBallWeight, setBallBounce,
   changeBallCount, dropBalls, clearAll, toggleSound, updateColorSwatch
 } from '../input/tools.js';
+
+export function applyTutorialLock() {
+  document.getElementById('tool-palette').classList.add('tutorial-locked');
+  document.getElementById('drop-btn').classList.add('tutorial-locked');
+  document.getElementById('hopper-bar').classList.add('tutorial-locked');
+}
+
+export function removeTutorialLock() {
+  document.getElementById('tool-palette').classList.remove('tutorial-locked');
+  document.getElementById('drop-btn').classList.remove('tutorial-locked');
+  document.getElementById('hopper-bar').classList.remove('tutorial-locked');
+}
 
 export function setupButtons() {
   // Ball property sliders
@@ -44,4 +57,10 @@ export function setupButtons() {
 
   // Initialize color swatch
   updateColorSwatch();
+
+  // Tutorial: start when welcome modal is dismissed
+  document.addEventListener('tutorial-start', () => {
+    state.tutorialStep = 1;
+    applyTutorialLock();
+  });
 }
