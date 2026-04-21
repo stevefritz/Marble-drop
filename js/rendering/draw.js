@@ -171,6 +171,55 @@ function drawBalls() {
   }
 }
 
+function drawAimHint(dt) {
+  if (!state.showAimHint || state.aimHintTimer <= 0) return;
+  if (!state.cannonPlaced || !state.cannonPos) return;
+
+  state.aimHintTimer -= dt;
+  if (state.aimHintTimer <= 0) {
+    state.showAimHint = false;
+    return;
+  }
+
+  const ctx = state.ctx;
+  const { x, y } = state.cannonPos;
+
+  // Fade out during last 0.5s
+  const alpha = state.aimHintTimer < 0.5 ? state.aimHintTimer / 0.5 : 1.0;
+
+  // Position hint to the right or left of cannon depending on its position
+  const onRight = x < state.canvas.width / 2;
+  const offsetX = onRight ? 50 : -50;
+  const hintX = x + offsetX;
+  const hintY = y - 2;
+  const text = onRight ? 'Drag to aim \u2192' : '\u2190 Drag to aim';
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = '600 13px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Measure text for pill background
+  const metrics = ctx.measureText(text);
+  const padX = 10;
+  const padY = 6;
+  const pillW = metrics.width + padX * 2;
+  const pillH = 13 + padY * 2;
+
+  // Pill background
+  ctx.fillStyle = 'rgba(22, 33, 62, 0.8)';
+  ctx.beginPath();
+  ctx.roundRect(hintX - pillW / 2, hintY - pillH / 2, pillW, pillH, pillH / 2);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#6a8abf';
+  ctx.fillText(text, hintX, hintY);
+
+  ctx.restore();
+}
+
 export function render(ts) {
   requestAnimationFrame(render);
 
@@ -192,6 +241,7 @@ export function render(ts) {
   drawCurves();
   drawPegs();
   drawCannon();
+  drawAimHint(rawDt);
   drawBalls();
   drawRocketParticles();
   drawRocket();
