@@ -7,7 +7,7 @@ import { snapToDot } from '../engine/grid.js';
 import { distToSeg, distToCurve } from '../utils/math.js';
 import { tryFireRocket } from '../weapons/rocket.js';
 import { tryFireLaser } from '../weapons/laser.js';
-import { placeCannon } from '../input/tools.js';
+import { placeCannon, setTool } from '../input/tools.js';
 
 const CANNON_AIM_RADIUS = 50;
 
@@ -85,12 +85,26 @@ function onStart(x, y) {
     return;
   }
 
-  // Check if aiming existing cannon (drag from near it)
-  if (isNearCannon(x, y)) {
-    state.isAimingCannon = true;
-    updateCannonAngle(x, y);
+  // Cannon tool: placement and aiming only, no drawing
+  if (state.currentTool === 'cannon') {
+    // Lock cannon during firing sequence
+    if (state.firingSequence !== null) return;
+    if (isNearCannon(x, y)) {
+      state.isAimingCannon = true;
+      updateCannonAngle(x, y);
+      return;
+    }
+    const wasPlaced = state.cannonPlaced;
+    if (placeCannon(x, y)) {
+      // Auto-switch to wall tool after first placement
+      if (!wasPlaced) {
+        setTool('wall');
+      }
+    }
     return;
   }
+
+  // Non-cannon tools: no cannon placement or aiming
 
   if (state.currentTool === 'peg') {
     const dot = snapToDot(x, y);
@@ -116,30 +130,24 @@ function onStart(x, y) {
     }
   }
 
-  // Try cannon placement: tap on grid dot that doesn't have a peg
+  // Wall/curve drawing: start draw gesture from grid dot
   const dot = snapToDot(x, y);
   if (dot) {
-    const hasPeg = state.pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4);
-    if (!hasPeg) {
-      // Place/move cannon here
-      placeCannon(x, y);
-      // Also start draw gesture from this dot for wall/curve tools
-      if (state.currentTool === 'wall' || state.currentTool === 'curve') {
-        state.isDrawing = true;
-        state.drawStart = { x: dot.x, y: dot.y };
-        state.ghostPos = { x, y };
-      }
-      return;
+    if (state.currentTool === 'wall' || state.currentTool === 'curve') {
+      state.isDrawing = true;
+      state.drawStart = { x: dot.x, y: dot.y };
+      state.ghostPos = { x, y };
     }
-    // Dot has a peg — start draw gesture only
-    state.isDrawing = true;
-    state.drawStart = { x: dot.x, y: dot.y };
-    state.ghostPos = { x, y };
   }
 }
 
 function onMove(x, y) {
   if (state.isAimingCannon) {
+    // Stop aiming if firing sequence started mid-drag
+    if (state.firingSequence !== null) {
+      state.isAimingCannon = false;
+      return;
+    }
     updateCannonAngle(x, y);
     return;
   }

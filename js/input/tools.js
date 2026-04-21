@@ -35,10 +35,6 @@ export function setBallBounce(v) {
   updateColorSwatch();
 }
 
-export function setCannonPower(v) {
-  state.cannonPower = Math.max(0, Math.min(100, Number(v)));
-}
-
 export function setTool(tool) {
   state.currentTool = tool;
 
@@ -82,20 +78,17 @@ export function placeCannon(x, y) {
   return true;
 }
 
-function spawnBalls() {
-  if (!state.cannonPlaced || !state.cannonPos) return;
+const CANNON_BASE_SPEED = 450;
 
-  const count = BALL_COUNTS[state.ballCountIdx];
+function spawnOneBall() {
+  if (!state.cannonPlaced || !state.cannonPos) return;
+  if (state.balls.length >= MAX_BALLS) return;
+
   const weight = state.ballWeight;
   const bounce = state.ballBounce;
-  const power = state.cannonPower;
-
   const mass = 0.5 + (weight / 100) * 3.5;
   const restitution = 0.3 + (bounce / 100) * 0.68;
   const color = computeBallColor(weight, bounce);
-  const powerMult = 0.5 + (power / 100) * 2.5;
-  const baseSpeed = 130;
-  const speed = baseSpeed * powerMult;
 
   const props = {
     color,
@@ -106,52 +99,79 @@ function spawnBalls() {
     radius: 8,
   };
 
-  for (let i = 0; i < count; i++) {
-    if (state.balls.length >= MAX_BALLS) break;
+  // ±3° angle jitter
+  const jitterAngle = (Math.random() - 0.5) * (6 * Math.PI / 180);
+  const angle = state.cannonAngle + jitterAngle;
 
-    // ±5° angle jitter
-    const jitterAngle = (Math.random() - 0.5) * (10 * Math.PI / 180);
-    const angle = state.cannonAngle + jitterAngle;
+  const vx = Math.cos(angle) * CANNON_BASE_SPEED;
+  const vy = Math.sin(angle) * CANNON_BASE_SPEED;
 
-    // ±10% velocity jitter
-    const velJitter = 1.0 + (Math.random() - 0.5) * 0.2;
-    const v = speed * velJitter;
+  state.balls.push({
+    id: state.nextBallId++,
+    x: state.cannonPos.x,
+    y: state.cannonPos.y,
+    vx,
+    vy,
+    props,
+    trail: [],
+    atRest: false,
+    restTimer: 0,
+    fadeTimer: 0,
+    opacity: 1.0,
+    gcTimer: 0,
+    gcFading: false,
+    age: 0,
+  });
 
-    const vx = Math.cos(angle) * v;
-    const vy = Math.sin(angle) * v;
-
-    state.balls.push({
-      id: state.nextBallId++,
-      x: state.cannonPos.x,
-      y: state.cannonPos.y,
-      vx,
-      vy,
-      props,
-      trail: [],
-      atRest: false,
-      restTimer: 0,
-      fadeTimer: 0,
-      opacity: 1.0,
-      gcTimer: 0,
-      gcFading: false,
-      age: 0,
-    });
-  }
+  soundEngine.playDrop();
 }
 
 export function dropBalls() {
-  if (state.balls.length >= MAX_BALLS) return;
   if (!state.cannonPlaced || !state.cannonPos) return;
+  if (state.balls.length >= MAX_BALLS) return;
+
+  // Cancel any active firing sequence and start fresh
+  if (state.firingSequence !== null) {
+    clearInterval(state.firingSequence);
+    state.firingSequence = null;
+  }
+
+  // Lock cannon — stop any in-progress aiming
+  state.isAimingCannon = false;
+
   if (!state.firstDropTime) {
     state.firstDropTime = performance.now();
     state.chargeStart = state.firstDropTime;
     state.isFirstCharge = true;
   }
-  soundEngine.playDrop();
-  spawnBalls();
+
   const btn = document.getElementById('drop-btn');
   btn.style.transform = 'scale(0.90)';
   setTimeout(() => { btn.style.transform = ''; }, 160);
+
+  const total = BALL_COUNTS[state.ballCountIdx];
+  let fired = 0;
+
+  // Fire first ball immediately
+  spawnOneBall();
+  fired++;
+
+  if (fired >= total) return;
+
+  // Fire remaining balls at 200ms intervals (5/sec)
+  state.firingSequence = setInterval(() => {
+    if (fired >= total || state.balls.length >= MAX_BALLS) {
+      clearInterval(state.firingSequence);
+      state.firingSequence = null;
+      return;
+    }
+    spawnOneBall();
+    fired++;
+    if (fired >= total) {
+      clearInterval(state.firingSequence);
+      state.firingSequence = null;
+    }
+  }, 200);
 }
 
 export function toggleSound() {
@@ -164,6 +184,10 @@ export function toggleSound() {
 export function clearAll() {
   if (state.walls.length + state.curves.length + state.pegs.length + state.balls.length === 0 && !state.cannonPlaced) return;
   if (confirm('Clear everything and start over?')) {
+    if (state.firingSequence !== null) {
+      clearInterval(state.firingSequence);
+      state.firingSequence = null;
+    }
     state.walls = []; state.curves = []; state.pegs = []; state.balls = [];
     state.isDrawing = false; state.drawStart = null; state.ghostPos = null; state.editingCurve = null;
     state.rockets = []; state.rocketParticles = [];
@@ -182,5 +206,6 @@ export function clearAll() {
     state.cannonAngle = -Math.PI / 2;
     state.isAimingCannon = false;
     document.getElementById('score-lcd').textContent = '00000';
+    setTool('cannon');
   }
 }
