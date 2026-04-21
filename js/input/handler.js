@@ -1,4 +1,4 @@
-// handler.js — input event handling (touch/mouse), tool routing
+// handler.js — input event handling (touch/mouse), tool routing, cannon interaction
 'use strict';
 
 import { state } from '../state.js';
@@ -7,6 +7,9 @@ import { snapToDot } from '../engine/grid.js';
 import { distToSeg, distToCurve } from '../utils/math.js';
 import { tryFireRocket } from '../weapons/rocket.js';
 import { tryFireLaser } from '../weapons/laser.js';
+import { placeCannon } from '../input/tools.js';
+
+const CANNON_AIM_RADIUS = 50;
 
 function getPos(e) {
   const rect = state.canvas.getBoundingClientRect();
@@ -47,6 +50,29 @@ function eraseAt(x, y) {
       state.walls.splice(i, 1); return;
     }
   }
+
+  // Erase cannon if clicked on it
+  if (state.cannonPlaced && state.cannonPos) {
+    if (Math.hypot(state.cannonPos.x - x, state.cannonPos.y - y) < CANNON_AIM_RADIUS) {
+      state.cannonPos = null;
+      state.cannonPlaced = false;
+      return;
+    }
+  }
+}
+
+function isNearCannon(x, y) {
+  if (!state.cannonPlaced || !state.cannonPos) return false;
+  return Math.hypot(state.cannonPos.x - x, state.cannonPos.y - y) < CANNON_AIM_RADIUS;
+}
+
+function updateCannonAngle(x, y) {
+  if (!state.cannonPos) return;
+  const dx = x - state.cannonPos.x;
+  const dy = y - state.cannonPos.y;
+  if (Math.hypot(dx, dy) > 5) {
+    state.cannonAngle = Math.atan2(dy, dx);
+  }
 }
 
 function onStart(x, y) {
@@ -59,9 +85,18 @@ function onStart(x, y) {
     return;
   }
 
+  // Check if aiming existing cannon (drag from near it)
+  if (isNearCannon(x, y)) {
+    state.isAimingCannon = true;
+    updateCannonAngle(x, y);
+    return;
+  }
+
   if (state.currentTool === 'peg') {
     const dot = snapToDot(x, y);
     if (dot && !state.pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4)) {
+      // Don't place peg on cannon
+      if (state.cannonPlaced && state.cannonPos && Math.hypot(dot.x - state.cannonPos.x, dot.y - state.cannonPos.y) < 4) return;
       state.pegs.push({ x: dot.x, y: dot.y, pulseTimer: 0, color: state.currentLineColor });
     }
     return;
@@ -81,8 +116,22 @@ function onStart(x, y) {
     }
   }
 
+  // Try cannon placement: tap on grid dot that doesn't have a peg
   const dot = snapToDot(x, y);
   if (dot) {
+    const hasPeg = state.pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4);
+    if (!hasPeg) {
+      // Place/move cannon here
+      placeCannon(x, y);
+      // Also start draw gesture from this dot for wall/curve tools
+      if (state.currentTool === 'wall' || state.currentTool === 'curve') {
+        state.isDrawing = true;
+        state.drawStart = { x: dot.x, y: dot.y };
+        state.ghostPos = { x, y };
+      }
+      return;
+    }
+    // Dot has a peg — start draw gesture only
     state.isDrawing = true;
     state.drawStart = { x: dot.x, y: dot.y };
     state.ghostPos = { x, y };
@@ -90,6 +139,10 @@ function onStart(x, y) {
 }
 
 function onMove(x, y) {
+  if (state.isAimingCannon) {
+    updateCannonAngle(x, y);
+    return;
+  }
   if (state.editingCurve) {
     state.editingCurve.cx = x;
     state.editingCurve.cy = y;
@@ -101,6 +154,11 @@ function onMove(x, y) {
 }
 
 function onEnd(x, y) {
+  if (state.isAimingCannon) {
+    updateCannonAngle(x, y);
+    state.isAimingCannon = false;
+    return;
+  }
   if (state.editingCurve) { state.editingCurve = null; return; }
   if (!state.isDrawing) return;
   state.isDrawing = false;
@@ -125,9 +183,9 @@ export function setupInput() {
   canvas.addEventListener('mousedown',  e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); });
   canvas.addEventListener('mousemove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  });
   canvas.addEventListener('mouseup',    e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   });
-  canvas.addEventListener('mouseleave', e => { if(state.isDrawing||state.editingCurve){ const p=getPos(e); onEnd(p.x,p.y); } });
+  canvas.addEventListener('mouseleave', e => { if(state.isDrawing||state.editingCurve||state.isAimingCannon){ const p=getPos(e); onEnd(p.x,p.y); } });
   canvas.addEventListener('touchstart', e => { e.preventDefault(); const p=getPos(e); onStart(p.x,p.y); }, opts);
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); const p=getPos(e); onMove(p.x,p.y);  }, opts);
   canvas.addEventListener('touchend',   e => { e.preventDefault(); const p=getPos(e); onEnd(p.x,p.y);   }, opts);
-  canvas.addEventListener('touchcancel',e => { state.isDrawing=false; state.editingCurve=null; state.drawStart=null; state.ghostPos=null; }, opts);
+  canvas.addEventListener('touchcancel',e => { state.isDrawing=false; state.editingCurve=null; state.drawStart=null; state.ghostPos=null; state.isAimingCannon=false; }, opts);
 }

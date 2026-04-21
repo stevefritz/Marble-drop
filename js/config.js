@@ -52,4 +52,4 @@ export const LINE_COLORS = {
   purple: '#CC44FF',
 };
 
-export const VERSION = 'v3.4';
+export const VERSION = 'v4.0';

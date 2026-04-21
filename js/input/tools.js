@@ -1,11 +1,43 @@
-// tools.js — UI tool/color/grid controls, ball spawning
+// tools.js — UI tool/color/grid controls, ball spawning, cannon placement
 'use strict';
 
 import { state } from '../state.js';
 import {
-  BALL_PROPS, BALL_COUNTS, MAX_BALLS, LINE_COLORS
+  BALL_COUNTS, MAX_BALLS, LINE_COLORS
 } from '../config.js';
 import { soundEngine } from '../audio/sound.js';
+import { snapToDot } from '../engine/grid.js';
+
+export function computeBallColor(weight, bounce) {
+  const w = weight / 100;
+  const b = bounce / 100;
+  const r = Math.round(80 + (1 - b) * 175);
+  const g = Math.round(80 + b * 140 + (1 - w) * 40);
+  const bl = Math.round(80 + w * 175);
+  return `rgb(${r},${g},${bl})`;
+}
+
+export function updateColorSwatch() {
+  const swatch = document.getElementById('color-swatch');
+  if (!swatch) return;
+  const color = computeBallColor(state.ballWeight, state.ballBounce);
+  swatch.style.background = color;
+  swatch.style.boxShadow = `0 0 12px ${color}`;
+}
+
+export function setBallWeight(v) {
+  state.ballWeight = Math.max(0, Math.min(100, Number(v)));
+  updateColorSwatch();
+}
+
+export function setBallBounce(v) {
+  state.ballBounce = Math.max(0, Math.min(100, Number(v)));
+  updateColorSwatch();
+}
+
+export function setCannonPower(v) {
+  state.cannonPower = Math.max(0, Math.min(100, Number(v)));
+}
 
 export function setTool(tool) {
   state.currentTool = tool;
@@ -29,12 +61,6 @@ export function setTool(tool) {
   state.isDrawing = false; state.drawStart = null; state.ghostPos = null; state.editingCurve = null;
 }
 
-export function setBallColor(color) {
-  state.currentBallColor = color;
-  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-' + color).classList.add('active');
-}
-
 export function setLineColor(name) {
   state.currentLineColor = LINE_COLORS[name] || '#FFFFFF';
   document.querySelectorAll('.line-color-btn').forEach(b => b.classList.remove('active'));
@@ -46,24 +72,59 @@ export function changeBallCount(dir) {
   document.getElementById('count-display').textContent = BALL_COUNTS[state.ballCountIdx];
 }
 
+export function placeCannon(x, y) {
+  const dot = snapToDot(x, y);
+  if (!dot) return false;
+  // Don't place on existing pegs
+  if (state.pegs.some(p => Math.hypot(p.x - dot.x, p.y - dot.y) < 4)) return false;
+  state.cannonPos = { x: dot.x, y: dot.y };
+  state.cannonPlaced = true;
+  return true;
+}
+
 function spawnBalls() {
+  if (!state.cannonPlaced || !state.cannonPos) return;
+
   const count = BALL_COUNTS[state.ballCountIdx];
-  const props = { ...BALL_PROPS[state.currentBallColor] };
-  const totalW = state.gridSpacing * (state.gridCols - 1);
-  const br = props.radius;
+  const weight = state.ballWeight;
+  const bounce = state.ballBounce;
+  const power = state.cannonPower;
+
+  const mass = 0.5 + (weight / 100) * 3.5;
+  const restitution = 0.3 + (bounce / 100) * 0.68;
+  const color = computeBallColor(weight, bounce);
+  const powerMult = 0.5 + (power / 100) * 2.5;
+  const baseSpeed = 130;
+  const speed = baseSpeed * powerMult;
+
+  const props = {
+    color,
+    glow: color,
+    speed: 1.0,
+    mass,
+    restitution,
+    radius: 8,
+  };
 
   for (let i = 0; i < count; i++) {
     if (state.balls.length >= MAX_BALLS) break;
-    const t = count === 1 ? 0.5 : i / (count - 1);
-    const jx = (Math.random() - 0.5) * state.gridSpacing * 0.9;
-    const jy = (Math.random() - 0.5) * 18;
-    const vy = 130 * props.speed + Math.random() * 40;
-    const rawX = state.gridOffsetX + t * totalW + jx;
+
+    // ±5° angle jitter
+    const jitterAngle = (Math.random() - 0.5) * (10 * Math.PI / 180);
+    const angle = state.cannonAngle + jitterAngle;
+
+    // ±10% velocity jitter
+    const velJitter = 1.0 + (Math.random() - 0.5) * 0.2;
+    const v = speed * velJitter;
+
+    const vx = Math.cos(angle) * v;
+    const vy = Math.sin(angle) * v;
+
     state.balls.push({
       id: state.nextBallId++,
-      x: Math.max(br, Math.min(state.canvas.width - br, rawX)),
-      y: state.gridOffsetY - 28 + jy,
-      vx: (Math.random() - 0.5) * 55,
+      x: state.cannonPos.x,
+      y: state.cannonPos.y,
+      vx,
       vy,
       props,
       trail: [],
@@ -80,6 +141,7 @@ function spawnBalls() {
 
 export function dropBalls() {
   if (state.balls.length >= MAX_BALLS) return;
+  if (!state.cannonPlaced || !state.cannonPos) return;
   if (!state.firstDropTime) {
     state.firstDropTime = performance.now();
     state.chargeStart = state.firstDropTime;
@@ -100,7 +162,7 @@ export function toggleSound() {
 }
 
 export function clearAll() {
-  if (state.walls.length + state.curves.length + state.pegs.length + state.balls.length === 0) return;
+  if (state.walls.length + state.curves.length + state.pegs.length + state.balls.length === 0 && !state.cannonPlaced) return;
   if (confirm('Clear everything and start over?')) {
     state.walls = []; state.curves = []; state.pegs = []; state.balls = [];
     state.isDrawing = false; state.drawStart = null; state.ghostPos = null; state.editingCurve = null;
@@ -115,6 +177,10 @@ export function clearAll() {
     state.laserSteamParticles = [];
     state.turretAngle = Math.PI / 2;
     state.score = 0;
+    state.cannonPos = null;
+    state.cannonPlaced = false;
+    state.cannonAngle = -Math.PI / 2;
+    state.isAimingCannon = false;
     document.getElementById('score-lcd').textContent = '00000';
   }
 }
