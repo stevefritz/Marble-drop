@@ -1,6 +1,6 @@
 # Marble Drop
 
-My son handed me a drawing when she was 7 — a game where you build obstacle courses and then fire rockets at the marbles. This is that game.
+My son handed me a drawing when he was 7 — a game where you build obstacle courses and then fire rockets at the marbles. This is that game.
 
 ## What it is
 
